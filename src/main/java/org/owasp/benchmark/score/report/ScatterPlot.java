@@ -42,7 +42,7 @@ public class ScatterPlot {
         StandardChartTheme theme = (StandardChartTheme) org.jfree.chart.StandardChartTheme.createJFreeTheme();
         theme.setExtraLargeFont(new Font(fontName, Font.PLAIN, 24)); // title
         theme.setLargeFont(new Font(fontName, Font.PLAIN, 20)); // axis-title
-        theme.setRegularFont(new Font(fontName, Font.PLAIN, 16));
+        theme.setRegularFont(new Font(fontName, Font.PLAIN, 14));
         theme.setSmallFont(new Font(fontName, Font.PLAIN, 12));
         theme.setRangeGridlinePaint(Color.decode("#C0C0C0"));
         theme.setPlotBackgroundPaint(Color.white);

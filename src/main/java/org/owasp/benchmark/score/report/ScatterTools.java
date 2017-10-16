@@ -82,7 +82,7 @@ public class ScatterTools extends ScatterPlot {
 		initializePlot( xyplot );
 		
 		makeDataLabels(or, xyplot);
-        makeLegend( or, 103, 93, dataset, xyplot );
+        makeLegend( or, 75, 105, dataset, xyplot );
 
 		XYTextAnnotation time = new XYTextAnnotation("Tool run time: " + or.getTime(), 12, -5.6);
 		time.setTextAnchor(TextAnchor.TOP_LEFT);
@@ -197,6 +197,13 @@ public class ScatterTools extends ScatterPlot {
 		int i = 0;
 		int toolCount = 0;
         double totalScore = 0;
+        
+        // legend in columns.
+        int itemsByColumn = 32;
+        int columnNumber = 0;
+        double xPos = x;
+        double yPos = y;
+        
 		for (OverallResult r : or.getResults()) {
 			toolCount++;
 			// Add a bit more white space if the character is I, since its so thin.
@@ -204,7 +211,8 @@ public class ScatterTools extends ScatterPlot {
 			int score = (int) (100 * (r.truePositiveRate - r.falsePositiveRate));
 			String msg = "\u25A0 " + label + r.category + " (" + score + "%)";
 			totalScore += score;
-			XYTextAnnotation stroketext = new XYTextAnnotation(msg, x, y + i * -3.3);
+			yPos = y + i * -3.3;
+			XYTextAnnotation stroketext = new XYTextAnnotation(msg, xPos, yPos);
 			stroketext.setTextAnchor(TextAnchor.CENTER_LEFT);
 			stroketext.setBackgroundPaint(Color.white);
 			stroketext.setPaint(Color.blue);
@@ -212,11 +220,20 @@ public class ScatterTools extends ScatterPlot {
 			xyplot.addAnnotation(stroketext);
 			i++;
 			ch++;
+			
+			if (toolCount > itemsByColumn) {
+				columnNumber++;
+				xPos = x + (columnNumber * 25);
+				yPos = y;
+				i = 0;
+				toolCount = 0;
+			}
 		}
 		
 		if(toolCount>1) {
             double averageScore = totalScore/toolCount;
-    		XYTextAnnotation stroketext = new XYTextAnnotation("\u25A0 " + ch + ": Average Score for this Tool"+ " (" + (int)averageScore + "%)", x, y + i * -3.3);
+            yPos = y + (itemsByColumn+1) * -3.3;
+    		XYTextAnnotation stroketext = new XYTextAnnotation("\u25A0 " + ch + ": Average Score for this Tool"+ " (" + (int)averageScore + "%)", x, yPos);
     		stroketext.setTextAnchor(TextAnchor.CENTER_LEFT);
     		stroketext.setBackgroundPaint(Color.white);
     		stroketext.setPaint(Color.magenta);

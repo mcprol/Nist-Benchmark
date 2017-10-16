@@ -73,10 +73,11 @@ public class Report implements Comparable<Report> {
 
 		this.reportPath = BenchmarkScore.scoreCardDirName + File.separator + filename + ".html";
 		File img = new File(BenchmarkScore.scoreCardDirName + File.separator + filename + ".png");
-		ScatterTools graph = new ScatterTools(shortTitle, 800, or);
+		int imgHeight = 800;
+		ScatterTools graph = new ScatterTools(shortTitle, imgHeight, or);
 
 		if (!(BenchmarkScore.showAveOnlyMode && this.isCommercial)) {
-			graph.writeChartToFile(img, 800);	
+			graph.writeChartToFile(img, imgHeight);	
 			String reportHtml = generateHtml(fullTitle, actualResults, scores, or, totalResults, img, actualResultsFileName);
 			Files.write(Paths.get(reportPath), reportHtml.getBytes());
 			System.out.println("Report written to: " + new File(reportPath).getAbsolutePath());
