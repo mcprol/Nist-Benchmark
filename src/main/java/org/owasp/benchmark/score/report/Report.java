@@ -1,20 +1,20 @@
 /**
-* OWASP Benchmark Project
-*
-* This file is part of the Open Web Application Security Project (OWASP)
-* Benchmark Project For details, please see
-* <a href="https://www.owasp.org/index.php/Benchmark">https://www.owasp.org/index.php/Benchmark</a>.
-*
-* The OWASP Benchmark is free software: you can redistribute it and/or modify it under the terms
-* of the GNU General Public License as published by the Free Software Foundation, version 2.
-*
-* The OWASP Benchmark is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
-* even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details
-*
-* @author Dave Wichers <a href="https://www.aspectsecurity.com">Aspect Security</a>
-* @created 2015
-*/
+ * OWASP Benchmark Project
+ *
+ * This file is part of the Open Web Application Security Project (OWASP)
+ * Benchmark Project For details, please see
+ * <a href="https://www.owasp.org/index.php/Benchmark">https://www.owasp.org/index.php/Benchmark</a>.
+ *
+ * The OWASP Benchmark is free software: you can redistribute it and/or modify it under the terms
+ * of the GNU General Public License as published by the Free Software Foundation, version 2.
+ *
+ * The OWASP Benchmark is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details
+ *
+ * @author Dave Wichers <a href="https://www.aspectsecurity.com">Aspect Security</a>
+ * @created 2015
+ */
 
 package org.owasp.benchmark.score.report;
 
@@ -32,6 +32,7 @@ import org.owasp.benchmark.score.parsers.OverallResult;
 import org.owasp.benchmark.score.parsers.OverallResults;
 import org.owasp.benchmark.score.parsers.TestResults;
 import org.owasp.benchmark.score.parsers.TestResults.ToolType;
+import org.jfree.data.category.DefaultCategoryDataset;
 
 public class Report implements Comparable<Report> {
 
@@ -43,12 +44,14 @@ public class Report implements Comparable<Report> {
 	private final Map<String, Counter> scores;
 	private final OverallResults overallResults;
 	private final String reportPath;
-	
+
 	// The name of the file that contains this scorecard report
 	private String filename = null;
-	
+
 	public Report(TestResults actualResults, Map<String, Counter> scores, OverallResults or, int totalResults,
-			String actualResultsFileName, boolean isCommercial, ToolType toolType ) throws IOException, URISyntaxException {
+			String actualResultsFileName, boolean isCommercial, ToolType toolType, DefaultCategoryDataset bardataset ) throws IOException, URISyntaxException {
+		//bardataset.addValue(22, "Buu", "CWE-111");
+		//bardataset.addValue(27, "Beu", "CWE-111");
 		this.isCommercial = isCommercial;
 		this.toolType = toolType;
 		this.toolName = actualResults.getTool();
@@ -62,7 +65,7 @@ public class Report implements Comparable<Report> {
 		if (!BenchmarkScore.anonymousMode || !isCommercial) {
 			fullTitle += " (" + actualResults.toolType+ ")";			
 		}
-		
+
 		String shortTitle = "Benchmark v" + actualResults.getBenchmarkVersion() + " Scorecard for " + getToolName();
 		this.filename = "Benchmark v" + actualResults.getBenchmarkVersion() + " Scorecard for " 
 				+ actualResults.getToolNameAndVersion();
@@ -72,12 +75,13 @@ public class Report implements Comparable<Report> {
 		this.overallResults = or;
 
 		this.reportPath = BenchmarkScore.scoreCardDirName + File.separator + filename + ".html";
+		//File img_old = new File(BenchmarkScore.scoreCardDirName + File.separator + filename + "_old.png");
 		File img = new File(BenchmarkScore.scoreCardDirName + File.separator + filename + ".png");
-		int imgHeight = 800;
-		ScatterTools graph = new ScatterTools(shortTitle, imgHeight, or);
+		ScatterTools graph = new ScatterTools(shortTitle, 800, or, bardataset, actualResults.getToolNameAndVersion());
 
 		if (!(BenchmarkScore.showAveOnlyMode && this.isCommercial)) {
-			graph.writeChartToFile(img, imgHeight);	
+			graph.writeChartToFile(img, 800);
+			//graph.writeBarChartToFile(img, 1000,800);
 			String reportHtml = generateHtml(fullTitle, actualResults, scores, or, totalResults, img, actualResultsFileName);
 			Files.write(Paths.get(reportPath), reportHtml.getBytes());
 			System.out.println("Report written to: " + new File(reportPath).getAbsolutePath());
@@ -96,7 +100,7 @@ public class Report implements Comparable<Report> {
 	public String getToolNameAndVersion() {
 		return this.toolNameAndVersion;
 	}
-	
+
 	public boolean isCommercial() {
 		return this.isCommercial;
 	}
@@ -108,7 +112,7 @@ public class Report implements Comparable<Report> {
 	public String getBenchmarkVersion() {
 		return this.benchmarkVersion;
 	}
-	
+
 	/**
 	 * Gets the name of the file that contains this scorecard.
 	 * 
@@ -162,80 +166,117 @@ public class Report implements Comparable<Report> {
 		StringBuilder sb = new StringBuilder();
 		sb.append("<table class=\"table\">\n");
 		sb.append("<tr>");
-		sb.append("<th>Category</th>");
-		sb.append("<th>CWE #</th>");
+		sb.append("<th>CWE</th>");
 		sb.append("<th>TP</th>");
 		sb.append("<th>FN</th>");
-		sb.append("<th>TN</th>");
-		sb.append("<th>FP</th>");
+		//sb.append("<th>TN</th>");
+		//sb.append("<th>FP</th>");
 		sb.append("<th>Total</th>");
-		sb.append("<th>TPR</th>");
-		sb.append("<th>FPR</th>");
+		//sb.append("<th>TPR</th>"); // =Score
+		//sb.append("<th>FPR</th>");
 		sb.append("<th>Score</th>");
 		sb.append("</tr>\n");
 		Counter totals = new Counter();
 		double totalTPR = 0;
-		double totalFPR = 0;
-		double totalScore = 0;
+		//double totalFPR = 0;
+		//double totalScore = 0;
+		int nrbadtests = 0;
 
 		for (String category : scores.keySet()) {
-			
+
 			Counter c = scores.get(category);
 			OverallResult r = or.getResults(category);
-			String style = "";
-			
-			if (Math.abs(r.truePositiveRate - r.falsePositiveRate) < .1)
-				style = "class=\"danger\"";
-			else if (r.truePositiveRate > .7 && r.falsePositiveRate < .3)
-				style = "class=\"success\"";
-			sb.append("<tr " + style + ">");
-			sb.append("<td>" + category + "</td>");
-			sb.append("<td>" + BenchmarkScore.translateNameToCWE(category) + "</td>");
-			sb.append("<td>" + c.tp + "</td>");
-			sb.append("<td>" + c.fn + "</td>");
-			sb.append("<td>" + c.tn + "</td>");
-			sb.append("<td>" + c.fp + "</td>");
-			sb.append("<td>" + r.total + "</td>");
-			sb.append("<td>" + new DecimalFormat("#0.00%").format(r.truePositiveRate) + "</td>");
-			sb.append("<td>" + new DecimalFormat("#0.00%").format(r.falsePositiveRate) + "</td>");
-			sb.append("<td>" + new DecimalFormat("#0.00%").format(r.score) + "</td>");
-			sb.append("</tr>\n");
-			totals.tp += c.tp;
-			totals.fn += c.fn;
-			totals.tn += c.tn;
-			totals.fp += c.fp;
-			if (!Double.isNaN(r.truePositiveRate))
-				totalTPR += r.truePositiveRate;
-			if (!Double.isNaN(r.falsePositiveRate))
-				totalFPR += r.falsePositiveRate;
-			if (!Double.isNaN(r.score))
-				totalScore += r.score;
+
+			if (!(c.tp == 0 && c.fn == 0)) {
+				String style = "";
+				nrbadtests ++;
+
+				// 20171031 RME Mark CWE's that are not supported by Kiuwan
+				String CWEnr = Integer.toString(BenchmarkScore.translateNameToCWE(category));
+				if (ScatterTools.IgnCWEs.contains(CWEnr)) {
+					style = "class=\"warning\"";
+					//} else if (Math.abs(r.truePositiveRate - r.falsePositiveRate) < .1) {	
+				} else if (Math.abs(r.truePositiveRate) < .1) {
+					style = "class=\"danger\"";
+					//} else if (r.truePositiveRate > .7 && r.falsePositiveRate < .3) {
+				} else if (r.truePositiveRate > .7) {
+					style = "class=\"success\"";
+				}
+				sb.append("<tr " + style + ">");
+				if (ScatterTools.IgnCWEs.contains(CWEnr)) {
+					sb.append("<td>" + category + " (*)</td>");
+				} else {
+					sb.append("<td>" + category + "</td>");
+				}
+				//sb.append("<td>" + BenchmarkScore.translateNameToCWE(category) + "</td>");
+				//No case: tp and fn are 0
+				//if (c.tp == 0 && c.fn == 0) {
+				//	sb.append("<td>-</td><td>-</td>");
+				//} else {
+					sb.append("<td>" + c.tp + "</td>");
+					sb.append("<td>" + c.fn + "</td>");
+				//}
+				/*//No case: tn and fp are 0
+			if (c.tn == 0 && c.fp == 0) {
+				sb.append("<td>-</td><td>-</td>");
+			} else {
+				sb.append("<td>" + c.tn + "</td>");
+				sb.append("<td>" + c.fp + "</td>");
+			}*/
+				//sb.append("<td>" + r.total + "</td>");
+				int totalbad = c.tp + c.fn;
+				sb.append("<td>" + totalbad + "</td>");
+				//if (c.tp == 0 && c.fn == 0) {
+				//	sb.append("<td>-</td>");
+				//} else {
+					sb.append("<td>" + new DecimalFormat("#0.00%").format(r.truePositiveRate) + "</td>");
+				//}
+				/*if (c.tn == 0 && c.fp == 0) {
+				sb.append("<td>-</td>");
+			} else {
+				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.falsePositiveRate) + "</td>");
+			}
+			sb.append("<td>" + new DecimalFormat("#0.00%").format(r.score) + "</td>");*/
+				sb.append("</tr>\n");
+				totals.tp += c.tp;
+				totals.fn += c.fn;
+				//totals.tn += c.tn;
+				//totals.fp += c.fp;
+				if (!Double.isNaN(r.truePositiveRate))
+					totalTPR += r.truePositiveRate;
+				//if (!Double.isNaN(r.falsePositiveRate))
+				//	totalFPR += r.falsePositiveRate;
+				//if (!Double.isNaN(r.score))
+				//	totalScore += r.score;
+			}
 		}
-		sb.append("<th>Totals*</th><th/>");
+		sb.append("<th>Totals**</th>");
 		sb.append("<th>" + totals.tp + "</th>");
 		sb.append("<th>" + totals.fn + "</th>");
-		sb.append("<th>" + totals.tn + "</th>");
-		sb.append("<th>" + totals.fp + "</th>");
-		int total = totals.tp + totals.fn + totals.tn + totals.fp;
+		//sb.append("<th>" + totals.tn + "</th>");
+		//sb.append("<th>" + totals.fp + "</th>");
+		//int total = totals.tp + totals.fn + totals.tn + totals.fp;
+		int total = totals.tp + totals.fn;
 		sb.append("<th>" + total + "</th>");
 		sb.append("<th/><th/><th/></tr>\n");
-		
-		sb.append("<th>Overall Results*</th><th/><th/><th/><th/><th/><th/>");
-		double tpr = (totalTPR / scores.size());
+
+		sb.append("<th>Overall Results**</th><th/><th/><th/>");
+		double tpr = (totalTPR / nrbadtests);
 		sb.append("<th>" + new DecimalFormat("#0.00%").format(tpr) + "</th>");
-		double fpr = (totalFPR / scores.size());
-		sb.append("<th>" + new DecimalFormat("#0.00%").format(fpr) + "</th>");
-		double score = totalScore / scores.size();
-		sb.append("<th>" + new DecimalFormat("#0.00%").format(score) + "</th>");
+		//double fpr = (totalFPR / scores.size());
+		//sb.append("<th>" + new DecimalFormat("#0.00%").format(fpr) + "</th>");
+		//double score = totalScore / scores.size();
+		//sb.append("<th>" + new DecimalFormat("#0.00%").format(score) + "</th>");
 		sb.append("</tr>\n");
 		sb.append("</table>");
-		sb.append("<p>*-The Overall Results are averages across all the vulnerability categories. "
+		sb.append("<p>* - Not supported by Kiuwan"
+				+ "<p>** - The Overall Results are averages across all the vulnerability categories. "
 				+ " You can't compute these averages by simply calculating the TPR and FPR rates using "
 				+ " the values in the Totals row. If you did that, categories with larger number of tests would carry "
 				+ " more weight than categories with less tests. The proper calculation of the Overall Results is to"
 				+ " add up all the TPR, FPR, and Score values, "
 				+ " and then divide by the number of vulnerability categories, which is how they are calculated.<p/>");
-				
+
 		return sb.toString();
 	}
 
@@ -246,5 +287,5 @@ public class Report implements Comparable<Report> {
 	public Map<String, Counter> getScores() {
 		return 	this.scores;
 	}
-	
+
 }

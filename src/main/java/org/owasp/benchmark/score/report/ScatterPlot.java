@@ -24,8 +24,11 @@ import org.jfree.chart.annotations.XYPointerAnnotation;
 import org.jfree.chart.annotations.XYShapeAnnotation;
 import org.jfree.chart.annotations.XYTextAnnotation;
 import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.axis.CategoryAxis;
+import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.axis.NumberTickUnit;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.renderer.category.StandardBarPainter;
 import org.jfree.ui.RectangleInsets;
 import org.jfree.ui.TextAnchor;
@@ -33,7 +36,11 @@ import org.jfree.ui.TextAnchor;
 public class ScatterPlot {
 
     JFreeChart chart = null;
+    JFreeChart barchart = null;
+    
     StandardChartTheme theme = initializeTheme();
+    StandardChartTheme bartheme = initializeBarTheme();
+    
     DecimalFormat pctFormat = new DecimalFormat("0'%'");
     Stroke dashed = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[] { 6, 3 }, 0);
 
@@ -42,7 +49,7 @@ public class ScatterPlot {
         StandardChartTheme theme = (StandardChartTheme) org.jfree.chart.StandardChartTheme.createJFreeTheme();
         theme.setExtraLargeFont(new Font(fontName, Font.PLAIN, 24)); // title
         theme.setLargeFont(new Font(fontName, Font.PLAIN, 20)); // axis-title
-        theme.setRegularFont(new Font(fontName, Font.PLAIN, 14));
+        theme.setRegularFont(new Font(fontName, Font.PLAIN, 16));
         theme.setSmallFont(new Font(fontName, Font.PLAIN, 12));
         theme.setRangeGridlinePaint(Color.decode("#C0C0C0"));
         theme.setPlotBackgroundPaint(Color.white);
@@ -52,6 +59,36 @@ public class ScatterPlot {
         theme.setBarPainter(new StandardBarPainter());
         theme.setAxisLabelPaint(Color.decode("#666666"));
         return theme;
+    }
+    
+    public StandardChartTheme initializeBarTheme() {
+        String fontName = "Arial";
+        StandardChartTheme theme = (StandardChartTheme) org.jfree.chart.StandardChartTheme.createJFreeTheme();
+        theme.setExtraLargeFont(new Font(fontName, Font.PLAIN, 24)); // title
+        theme.setLargeFont(new Font(fontName, Font.PLAIN, 20)); // axis-title
+        theme.setRegularFont(new Font(fontName, Font.PLAIN, 16));
+        theme.setSmallFont(new Font(fontName, Font.PLAIN, 12));
+        /*theme.setRangeGridlinePaint(Color.decode("#C0C0C0"));
+        theme.setPlotBackgroundPaint(Color.white);
+        theme.setChartBackgroundPaint(Color.white);
+        theme.setGridBandPaint(Color.red);
+        theme.setAxisOffset(new RectangleInsets(0, 0, 0, 0));
+        theme.setBarPainter(new StandardBarPainter());
+        theme.setAxisLabelPaint(Color.decode("#666666"));*/
+        return theme;
+    }
+    
+    public void initializeBarPlot(CategoryPlot catplot) {
+    	ValueAxis rangeAxis = (ValueAxis) catplot.getRangeAxis();
+    	CategoryAxis domainAxis = (CategoryAxis) catplot.getDomainAxis();
+
+        rangeAxis.setRange(0.0, 100.0);
+        rangeAxis.setTickLabelPaint(Color.decode("#666666"));
+        rangeAxis.setMinorTickCount(5);
+        rangeAxis.setMinorTickMarksVisible(true);
+        rangeAxis.setTickMarksVisible(true);
+        rangeAxis.setLowerMargin(10);
+        rangeAxis.setUpperMargin(10);    	
     }
     
     public void initializePlot( XYPlot xyplot ) {
@@ -125,7 +162,12 @@ public class ScatterPlot {
         ChartUtilities.writeChartAsPNG(stream, chart, (int)(height*1.4), height);
         stream.close();
     }
-
+    public void writeBarChartToFile(File f, int width, int height) throws IOException {
+        FileOutputStream stream = new FileOutputStream(f);
+        ChartUtilities.writeChartAsPNG(stream, barchart, width, height);
+        stream.close();
+    }
+    
     public void makePoint(XYPlot xyplot, Point2D location, double radius, Color color ) {
         double x = location.getX() - radius/2;
         double y = location.getY() - radius/2;

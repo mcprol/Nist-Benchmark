@@ -18,6 +18,8 @@
 
 package org.owasp.benchmark.score;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -55,6 +57,16 @@ import org.owasp.benchmark.score.parsers.TestResults;
 import org.owasp.benchmark.score.report.Report;
 import org.owasp.benchmark.score.report.ScatterHome;
 import org.owasp.benchmark.score.report.ScatterVulns;
+import org.owasp.benchmark.score.report.ScatterPlot;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtilities;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.StandardChartTheme;
+import org.jfree.chart.axis.CategoryAxis;
+import org.jfree.chart.axis.ValueAxis;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -80,7 +92,10 @@ public class BenchmarkScore {
     private static String commercialAveScorecardFilename = null;
     // The name of the tool to 'focus' on, if any
     private static String focus = "none";
+    private static DefaultCategoryDataset bardataset = new DefaultCategoryDataset();
     
+    private static JFreeChart barchart = null;
+    static StandardChartTheme bartheme = initializeBarTheme();
 	/*
 	 * A list of the reports produced for each tool.
 	 */
@@ -157,6 +172,22 @@ public class BenchmarkScore {
             e.printStackTrace();
         }
         
+        
+		// #### Generate Bar plot for all CWE's in one
+        barchart = ChartFactory.createBarChart("NISP Benchmark v" + BenchmarkScore.benchmarkVersion 
+        		+ " Results Comparison", "Vulnerabilities", "Score (%)", bardataset, PlotOrientation.HORIZONTAL, true, true, false);
+        bartheme.apply(barchart);
+        CategoryPlot catplot = barchart.getCategoryPlot();
+        initializeBarPlot( catplot );
+        
+        //Testing...
+        /*
+        bardataset.addValue(20.3, "Muuu", "CWE-111");
+        bardataset.addValue(20.2, "Baa", "CWE-111");
+        bardataset.addValue(100.0, "Muuu", "CWE-113");
+        bardataset.addValue(75.0, "Baa", "CWE-113");
+        */
+		
         // Step 4: Read the expected results so we know what each tool 'should do'
 		try {
 			
@@ -313,10 +344,13 @@ public class BenchmarkScore {
 			} // end else
 			
 			System.out.println( "Tool scorecards computed." );
+			
+			
 		} catch( Exception e ) {
 			System.out.println( "Error during processing: " + e.getMessage() );
 			e.printStackTrace();
 		}
+
 
         // Step 6: Now generate scorecards for each type of vulnerability across all the tools
 
@@ -336,6 +370,14 @@ public class BenchmarkScore {
 		
         // Step 8: Generate the overall comparison chart for all the tools in this test
         ScatterHome.generateComparisonChart(scoreCardDirName, toolResults, focus);
+        
+        //### Generate all CWE barchart
+        try {
+        	writeBarChartToFile(new File(scoreCardDirName + "/cwe_comparison.png"), 1100, 2000);
+        } catch (IOException e) {
+    		System.out.println("Couldn't generate CWE comparison chart for some reason.");
+    		e.printStackTrace();
+    	}
         
         // Step 9: Generate the results table across all the tools in this test
 		String table = generateOverallStatsTable(toolResults);
@@ -366,6 +408,8 @@ public class BenchmarkScore {
 	 */
 	private static void process(File f, TestResults expectedResults, Set<Report> toolreports) {
         try {
+        	//bardataset.addValue(20.3, "Muuu", f.getName());
+            //bardataset.addValue(20.2, "Baa", f.getName());
         	// Figure out the actual results for this tool from the raw results file for this tool            
             System.out.println( "\nAnalyzing results from " + f.getName() );
             TestResults actualResults = readActualResults( f );
@@ -390,7 +434,8 @@ public class BenchmarkScore {
                               
                 // This has the side effect of also generating the report on disk.
                 Report scoreCard = new Report( actualResults, scores, results, expectedResults.totalResults(), 
-                		actualResultsFileName, actualResults.isCommercial(),actualResults.getToolType());
+                		actualResultsFileName, actualResults.isCommercial(),actualResults.getToolType(), 
+                		bardataset);
                 
                 // Add this report to the list of reports
                 toolreports.add(scoreCard);
@@ -450,6 +495,7 @@ public class BenchmarkScore {
 		double totalFPRate = 0;
 		double totalTPRate = 0;
 		int total = 0;
+		int countNonNaN = 0;
 		int totalTP = 0;
 		int totalFP = 0;
 		int totalFN = 0;
@@ -457,18 +503,32 @@ public class BenchmarkScore {
 		for ( String category : results.keySet() ) {
 			Counter c = results.get( category );			
 			int rowTotal = c.tp + c.fn + c.tn + c.fp;
-			double tpr = (double) c.tp / (double) ( c.tp + c.fn );
-			double fpr = (double) c.fp / (double) ( c.fp + c.tn );
+			double tpr = 0.0;
+			double fpr = 0.0;
+			// Compensate "no case": 0/0 calculated...
+			//if (c.tp == 0 && c.fn == 0) {
+			//	tpr = 1.0;
+			//} else {
+				tpr = (double) c.tp / (double) ( c.tp + c.fn );
+			//}
+			//if (c.fp == 0 &&c.tn == 0) {
+			//	fpr = 0.0;
+			//} else {
+				fpr = (double) c.fp / (double) ( c.fp + c.tn );
+			//}
 //			double fdr = c.fp / ( c.tp + c.fp );
 
             // category score is distance from (fpr,tpr) to the guessing line
-            double side = tpr - fpr;
-            double hyp = side * Math.sqrt(2); // Pythagoras
-            double raw = hyp/2;
-            double score = raw * Math.sqrt(2); // adjust scores to 0-1
+            //double side = tpr - fpr;
+            //double hyp = side * Math.sqrt(2); // Pythagoras
+            //double raw = hyp/2;
+            //double score = raw * Math.sqrt(2); // adjust scores to 0-1
+            
+            double score = tpr;
             
             if ( !Double.isNaN(score)) {
                 totalScore += score;
+                countNonNaN ++;
             }
             totalFPRate += fpr;
             totalTPRate += tpr;
@@ -481,7 +541,8 @@ public class BenchmarkScore {
             or.add( category, tpr, fpr, rowTotal, score );
 		}
 		
-		int resultsSize = results.size();
+		//int resultsSize = results.size();
+		int resultsSize = countNonNaN;
 		or.setScore( totalScore / resultsSize );
 		or.setFalsePositiveRate( totalFPRate / resultsSize );
 		or.setTruePositiveRate( totalTPRate / resultsSize );
@@ -706,8 +767,8 @@ public class BenchmarkScore {
 		for ( TestCaseResult act : actList ) {
 			// Helpful in debugging
 		    //System.out.println( "  Evidence: " + act.getCWE() + " " + act.getEvidence() + "[" + act.getConfidence() + "]");
-			
-		    boolean match = act.getCWE() == exp.getCWE();
+			int expCWE = cweLookupExpected(exp.getCWE());
+		    boolean match = act.getCWE() == expCWE;
 			
 			// special hack since IBM/Veracode don't distinguish different kinds of weak algorithm
 			if ( tool.startsWith("AppScan") || tool.startsWith("Vera")) {
@@ -779,6 +840,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 					
 					Integer cweNumber = getCWE(cwe);
 					if (null != cweNumber) {
+						//cweNumber = cweLookupExpected(cweNumber);
 						String type = "CWE-" + cweNumber;
 						
 						TestCaseResult tcr = new TestCaseResult();
@@ -788,7 +850,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 						tcr.setCWE(cweNumber);
 
 						tcr.setNumber(NistHelper.getTestNumberFromFilename(path));
-						
+						//System.out.println("#### " + type + " Number= " + tcr.getNumber());
 						// Handle situation where expected results has full details
 						// Sometimes, it also has: source, data flow, data flow filename, sink
 						/*
@@ -1296,4 +1358,45 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
         return doc;
 	}
 	
+    private static StandardChartTheme initializeBarTheme() {
+        String fontName = "Arial";
+        StandardChartTheme theme = (StandardChartTheme) org.jfree.chart.StandardChartTheme.createJFreeTheme();
+        theme.setExtraLargeFont(new Font(fontName, Font.PLAIN, 24)); // title
+        theme.setLargeFont(new Font(fontName, Font.PLAIN, 20)); // axis-title
+        theme.setRegularFont(new Font(fontName, Font.PLAIN, 16));
+        theme.setSmallFont(new Font(fontName, Font.PLAIN, 12));
+        return theme;
+    }
+    
+    public static void initializeBarPlot(CategoryPlot catplot) {
+    	ValueAxis rangeAxis = (ValueAxis) catplot.getRangeAxis();
+    	CategoryAxis domainAxis = (CategoryAxis) catplot.getDomainAxis();
+
+        rangeAxis.setRange(0.0, 100.0);
+        rangeAxis.setTickLabelPaint(Color.decode("#666666"));
+        rangeAxis.setMinorTickCount(5);
+        rangeAxis.setMinorTickMarksVisible(true);
+        rangeAxis.setTickMarksVisible(true);
+        rangeAxis.setLowerMargin(10);
+        rangeAxis.setUpperMargin(10);    	
+    }
+	
+    public static void writeBarChartToFile(File f, int width, int height) throws IOException {
+        FileOutputStream stream = new FileOutputStream(f);
+        ChartUtilities.writeChartAsPNG(stream, barchart, width, height);
+        stream.close();
+    }
+    
+	private static Integer cweLookupExpected(int cwe) {
+		switch (cwe) {
+		case 23: // Relative path traversal
+		case 36: // Absolute path traversal
+			return 22; // OPT.JAVA.SEC_JAVA.PathTraversalRule
+		case 404:  // Improper Resource Shutdown or Release
+			return 459; // Incomplete Cleanup, temporal para regla: OPT.JAVA.IO.CS que deberia cambiar de 459->404. QAK-5038
+			
+		default:
+			return cwe;
+		}			
+	}
 }

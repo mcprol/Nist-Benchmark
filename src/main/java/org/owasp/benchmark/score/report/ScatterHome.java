@@ -37,11 +37,16 @@ import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.annotations.XYLineAnnotation;
 import org.jfree.chart.annotations.XYTextAnnotation;
+import org.jfree.chart.annotations.CategoryTextAnnotation;
+import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.data.xy.XYDataItem;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import org.jfree.data.category.CategoryDataset; 
+import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.ui.TextAnchor;
 import org.owasp.benchmark.score.BenchmarkScore;
 import org.owasp.benchmark.score.parsers.OverallResults;
@@ -51,6 +56,7 @@ public class ScatterHome extends ScatterPlot {
     double afr = 0;
     double atr = 0;
     public final String focus;
+    private DefaultCategoryDataset bardataset = new DefaultCategoryDataset();
 
     
     /**
@@ -73,14 +79,15 @@ public class ScatterHome extends ScatterPlot {
         ArrayList<Double> averageCommercialFalseRates = new ArrayList<Double>();
         ArrayList<Double> averageCommercialTrueRates = new ArrayList<Double>();
         
-        XYSeriesCollection dataset = new XYSeriesCollection(); 
+        XYSeriesCollection dataset = new XYSeriesCollection();
         XYSeries series = new XYSeries("Scores");    
         for ( Report toolReport : toolResults ) {
             if ( !toolReport.isCommercial() ) {
                 OverallResults overallResults = toolReport.getOverallResults();
-                series.add( overallResults.getFalsePositiveRate() * 100, overallResults.getTruePositiveRate() * 100);
+                //series.add( overallResults.getFalsePositiveRate() * 100, overallResults.getTruePositiveRate() * 100);
+                series.add( 0.0, overallResults.getTruePositiveRate() * 100);
                 if(toolReport.isCommercial()){
-                    averageCommercialFalseRates.add(overallResults.getFalsePositiveRate());
+                    //averageCommercialFalseRates.add(overallResults.getFalsePositiveRate());
                     averageCommercialTrueRates.add(overallResults.getTruePositiveRate());
                 }
             }
@@ -92,11 +99,13 @@ public class ScatterHome extends ScatterPlot {
             	commercialToolCount++;
                 OverallResults overallResults = toolReport.getOverallResults();
                 if (!BenchmarkScore.showAveOnlyMode) {
-                	series.add( overallResults.getFalsePositiveRate() * 100, 
-                		overallResults.getTruePositiveRate() * 100);
+                	//series.add( overallResults.getFalsePositiveRate() * 100, 
+                	//	overallResults.getTruePositiveRate() * 100);
+                	series.add( 0.0, overallResults.getTruePositiveRate() * 100);
+                	//bardataset.addValue( overallResults.getTruePositiveRate() * 100, "Boo", "Score" );
                 }
                 if(toolReport.isCommercial()){
-                    averageCommercialFalseRates.add(overallResults.getFalsePositiveRate());
+                    //averageCommercialFalseRates.add(overallResults.getFalsePositiveRate());
                     averageCommercialTrueRates.add(overallResults.getTruePositiveRate());
                 }
             }
@@ -113,20 +122,32 @@ public class ScatterHome extends ScatterPlot {
         atr = atr/averageCommercialTrueRates.size();
         
         if ( commercialToolCount > 1 || (BenchmarkScore.showAveOnlyMode && commercialToolCount == 1)) {
-            series.add(afr *100, atr*100);
+            //series.add(afr *100, atr*100);
+            series.add(0.0, atr*100);
+            //bardataset.addValue( atr*100, "Average", "Score" );
         }
         
         dataset.addSeries(series);
         
         chart = ChartFactory.createScatterPlot(title, "False Positive Rate", "True Positive Rate", dataset, PlotOrientation.VERTICAL, true, true, false);
         theme.apply(chart);
+        
+        barchart = ChartFactory.createBarChart(title, "Tools", "Score (%)", bardataset, PlotOrientation.HORIZONTAL, true, true, false);
+        bartheme.apply(barchart);
 
         XYPlot xyplot = chart.getXYPlot();
+        CategoryPlot catplot = barchart.getCategoryPlot();
         initializePlot( xyplot );
+        initializeBarPlot( catplot );
         
-        makeDataLabels( toolResults, xyplot );
-        makeLegend( toolResults, 103, 100.5, dataset, xyplot );
-
+        makeDataLabels( toolResults, xyplot, catplot );
+        makeLegend( toolResults, 103, 100.5, dataset, bardataset, xyplot, catplot );
+        //Test data
+        //bardataset.addValue( 0.7, "Boo", "Score" );
+        //bardataset.addValue( 0.2, "Baa", "Score" );
+        //CategoryTextAnnotation bartext = new CategoryTextAnnotation("Beeee", "Score", 9.9);
+        //catplot.addAnnotation(bartext);
+        
         for ( XYDataItem item : (List<XYDataItem>)series.getItems() ) {
             double x = item.getX().doubleValue();
             double y = item.getY().doubleValue();
@@ -134,7 +155,10 @@ public class ScatterHome extends ScatterPlot {
             XYLineAnnotation score = new XYLineAnnotation(x, y, z, z, dashed, Color.blue);
             xyplot.addAnnotation(score);
         }     
-
+        
+        // ##### Tryout
+        //height = 400;
+        
         ChartPanel cp = new ChartPanel(chart, height, height, 400, 400, 1200, 1200, false, false, false, false, false, false);
         f.add(cp);
         f.pack();
@@ -144,13 +168,14 @@ public class ScatterHome extends ScatterPlot {
     }
 
     
-    private void makeDataLabels( Set<Report> toolResults, XYPlot xyplot ) {        
+    private void makeDataLabels( Set<Report> toolResults, XYPlot xyplot, CategoryPlot catplot ) {        
         HashMap<Point2D,String> map = makePointList( toolResults );
         for (Entry<Point2D,String> e : map.entrySet() ) {
             if ( e.getValue() != null ) {
                 Point2D p = e.getKey();
                 String label = sort( e.getValue() );
                 XYTextAnnotation annotation = new XYTextAnnotation( label, p.getX(), p.getY());
+                //CategoryAnnotation catannotation = new CategoryAnnotation( label, p.getX(), p.getY());
                 annotation.setTextAnchor( p.getX() < 3 ? TextAnchor.TOP_LEFT : TextAnchor.TOP_CENTER);
                 annotation.setBackgroundPaint(Color.white);
                 if(label.toCharArray()[0] == averageLabel)
@@ -161,6 +186,7 @@ public class ScatterHome extends ScatterPlot {
                 }
                 annotation.setFont(theme.getRegularFont());
                 xyplot.addAnnotation(annotation);
+                //catplot.addAnnotation(annotation);
             }
         }
     }
@@ -252,7 +278,8 @@ public class ScatterHome extends ScatterPlot {
     }
 
 
-    private void makeLegend( Set<Report> toolResults, double x, double y, XYSeriesCollection dataset, XYPlot xyplot ) {
+    private void makeLegend( Set<Report> toolResults, double x, double y, XYSeriesCollection dataset, 
+    		DefaultCategoryDataset bardataset, XYPlot xyplot, CategoryPlot catplot ) {
         char ch = 'A';	// This is the first label in the Key with all the tools processed by this scorecard
         int i = -2; // Used to keep track of which row in the key were are processing. Helps calculate the Y axis
         			// location where to put the Key entry
@@ -276,14 +303,19 @@ public class ScatterHome extends ScatterPlot {
             	}
             	
                 String label = ( ch == 'I' ? ch + ":  " : ch + ": " );
-                double score = or.getScore() * 100;
+                //double score = or.getScore() * 100;
+                double score = or.getTruePositiveRate() * 100;
                 String msg = "\u25A0 " + label + r.getToolNameAndVersion() + " (" + Math.round(score) + "%)";
                 XYTextAnnotation stroketext3 = new XYTextAnnotation(msg, x, y + i * -3.3);
+                CategoryTextAnnotation bartext = new CategoryTextAnnotation(msg, "Score", score);
                 stroketext3.setTextAnchor(TextAnchor.CENTER_LEFT);
                 stroketext3.setBackgroundPaint(Color.white);
                 stroketext3.setPaint(Color.blue);
                 stroketext3.setFont(theme.getRegularFont());
                 xyplot.addAnnotation(stroketext3);
+                catplot.addAnnotation(bartext);
+                bardataset.addValue( score ,label + r.getToolNameAndVersion()  , "Score" );
+
                 i++;
                 ch++;
             }
@@ -316,6 +348,7 @@ public class ScatterHome extends ScatterPlot {
                 double score = or.getScore() * 100;
                 if (!BenchmarkScore.showAveOnlyMode) {
 	                String msg = "\u25A0 " + label + r.getToolNameAndVersion() + " (" + (int)score + "%)";
+	                bardataset.addValue(score, r.getToolNameAndVersion(), "Score" );
 	                XYTextAnnotation stroketext4 = new XYTextAnnotation(msg, x, y + i * -3.3);
 	                stroketext4.setTextAnchor(TextAnchor.CENTER_LEFT);
 	                stroketext4.setBackgroundPaint(Color.white);
@@ -353,11 +386,12 @@ public class ScatterHome extends ScatterPlot {
 
     public static void generateComparisonChart(String scoreCardDirName, Set<Report> toolResults, String focus ) {
     	try {
-    		String scatterTitle = "OWASP Benchmark" 
+    		String scatterTitle = "NISP Benchmark" 
     				+ (BenchmarkScore.mixedMode ? "" : " v" + BenchmarkScore.benchmarkVersion) 
             		+ " Results Comparison";
     		ScatterHome scatter = new ScatterHome(scatterTitle, 800, toolResults, focus );
-            scatter.writeChartToFile(new File(scoreCardDirName + "/benchmark_comparison.png"), 800);    		
+            scatter.writeChartToFile(new File(scoreCardDirName + "/benchmark_comparison_old.png"), 800);
+            scatter.writeBarChartToFile(new File(scoreCardDirName + "/benchmark_comparison.png"), 1000, 200);
     	} catch (IOException e) {
     		System.out.println("Couldn't generate Benchmark comparison chart for some reason.");
     		e.printStackTrace();

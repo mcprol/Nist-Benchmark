@@ -44,8 +44,7 @@ public class WriteTime {
 		String toolName = "";
 		String csvToolName = "";
 		if (args.length < 1) {
-			System.out
-					.println("Please provide the name of the tool.\n"
+			System.out.println("Please provide the name of the tool.\n"
 							+ "Currently supported: PMD (pmd), FindBugs (findbugs), FindSecBugs (findbugs) and SonarQube (sonar).");
 		} else {
 			toolName = args[0];
@@ -146,7 +145,8 @@ class WriteFiles {
 			}
 			// System.out.println(line.trim().replace(" ", ""));
 		} catch (Exception e) {
-			System.out.println("Error");
+			System.out.println("Error: ");
+			e.printStackTrace();
 		} finally {
 			try {
 				if (br != null)
@@ -265,8 +265,7 @@ class WriteFiles {
 			fw.write(xml);
 			fw.close();
 		} catch (Exception e) {
-			System.out
-					.println("There was an error while writing SonarQube results.");
+			System.out.println("There was an error while writing SonarQube results.");
 		}
 	}
 
@@ -288,8 +287,7 @@ class WriteFiles {
 			}
 			in.close();
 		} catch (Exception e) {
-			System.out
-					.println("There was an error trying to retrieve SonarQube results.");
+			System.out.println("There was an error trying to retrieve SonarQube results.");
 		}
 		return response.toString();
 	}

@@ -158,21 +158,25 @@ public class KiuwanXMLReader extends Reader {
 	
 	private Integer cweLookup(int cwe) {
 		switch (cwe) {
-		case 73: // OPT.JAVA.SEC_JAVA.PathTraversalRule			
-			return 22; // pathtraver
-		
-		case 326: // OPT.JAVA.SEC_JAVA.InsufficientKeySizeRule			
-		case 327: // OPT.JAVA.SEC_JAVA.WeakEncryptionRule			
-			return 327; // hash
+		//case 22: // OPT.JAVA.SEC_JAVA.PathTraversalRule			
+		//	return 23; // Relative path traversal or CWE:36 Absolute path traversal
+			
+			
+		//case 326: // OPT.JAVA.SEC_JAVA.InsufficientKeySizeRule			
+		//case 327: // OPT.JAVA.SEC_JAVA.WeakEncryptionRule			
+		//case 328: // OPT.JAVA.SEC_JAVA.WeakCryptographicHashRule
+		//	return 327; // hash
+			
+		//case 338: // OPT.JAVA.SEC_JAVA.InsecureRandomnessRule			
+		//	return 330; // weekrand
 			
 		default:
 			return cwe;
 		}			
 	}
 	
-	
 	private void trace(String msg) {
-		System.out.println(msg);
+		//System.out.println(msg);
 	}
 
 }

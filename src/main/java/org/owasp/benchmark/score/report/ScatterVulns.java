@@ -129,6 +129,8 @@ public class ScatterVulns extends ScatterPlot {
             series.add(afr * 100, atr * 100);
         }
 
+        // Tryout to eliminate 0% data in plots
+        
         dataset.addSeries(series);
 
         chart = ChartFactory.createScatterPlot(title, "False Positive Rate", "True Positive Rate", dataset, PlotOrientation.VERTICAL, true, true, false);
@@ -293,15 +295,20 @@ public class ScatterVulns extends ScatterPlot {
                 OverallResults or = r.getOverallResults();
                 String label = (ch == 'I' ? ch + ":  " : "" + ch + ": ");
                 double score = or.getResults(category).score * 100;
-                String msg = "\u25A0 " + label + r.getToolNameAndVersion() + " (" + (int) score + "%)";
-                XYTextAnnotation stroketext3 = new XYTextAnnotation(msg, x, y + i * -3.3);
-                stroketext3.setTextAnchor(TextAnchor.CENTER_LEFT);
-                stroketext3.setBackgroundPaint(Color.white);
-                stroketext3.setPaint(r.getToolName().replace(' ','_').equalsIgnoreCase(focus) ? Color.green : Color.blue);
-                stroketext3.setFont(theme.getRegularFont());
-                xyplot.addAnnotation(stroketext3);
-                i++;
-                ch++;
+                
+                // ###### RME 20171027 Suppress labels if score = 0%
+                // Not it.... :(
+                //if (((int) score) > 0) {
+	                String msg = "\u25A0 " + label + r.getToolNameAndVersion() + " (" + (int) score + "%###)";
+	                XYTextAnnotation stroketext3 = new XYTextAnnotation(msg, x, y + i * -3.3);
+	                stroketext3.setTextAnchor(TextAnchor.CENTER_LEFT);
+	                stroketext3.setBackgroundPaint(Color.white);
+	                stroketext3.setPaint(r.getToolName().replace(' ','_').equalsIgnoreCase(focus) ? Color.green : Color.blue);
+	                stroketext3.setFont(theme.getRegularFont());
+	                xyplot.addAnnotation(stroketext3);
+	                i++;
+	                ch++;
+                //}
             }
         }
 
@@ -330,16 +337,21 @@ public class ScatterVulns extends ScatterPlot {
                 double score = or.getResults(category).score * 100;
                 // don't show the commercial tool results if in 'show ave only mode'
                 if (!BenchmarkScore.showAveOnlyMode) {
-	                String label = (ch == 'I' ? ch + ":  " : ch + ": ");
-	                String msg = "\u25A0 " + label + r.getToolName() + " (" + (int) score + "%)";
-	                XYTextAnnotation stroketext4 = new XYTextAnnotation(msg, x, y + i * -3.3);
-	                stroketext4.setTextAnchor(TextAnchor.CENTER_LEFT);
-	                stroketext4.setBackgroundPaint(Color.white);
-	                stroketext4.setPaint(Color.blue);
-	                stroketext4.setFont(theme.getRegularFont());
-	                xyplot.addAnnotation(stroketext4);
-	                i++;  // increment the location of the label
-	                ch++; // increment to the next character
+                	// ###### RME 20171027 Suppress labels if score = 0%
+                	// This removes the 0% from the plots per CWE
+                	//if (((int) score) > 0) {
+                	
+		                String label = (ch == 'I' ? ch + ":  " : ch + ": ");
+		                String msg = "\u25A0 " + label + r.getToolName() + " (" + (int) score + "%%)";
+		                XYTextAnnotation stroketext4 = new XYTextAnnotation(msg, x, y + i * -3.3);
+		                stroketext4.setTextAnchor(TextAnchor.CENTER_LEFT);
+		                stroketext4.setBackgroundPaint(Color.white);
+		                stroketext4.setPaint(Color.blue);
+		                stroketext4.setFont(theme.getRegularFont());
+		                xyplot.addAnnotation(stroketext4);
+		                i++;  // increment the location of the label
+		                ch++; // increment to the next character
+                	//}
                 }
                 commercialTotal += score;
 
@@ -382,7 +394,7 @@ public class ScatterVulns extends ScatterPlot {
         try {
             String scatterTitle = "OWASP Benchmark" + (BenchmarkScore.mixedMode ? " -" : " v" + BenchmarkScore.benchmarkVersion) + " " + category + " Comparison";
             ScatterVulns scatter = new ScatterVulns(scatterTitle, 800, category, toolResults, focus);
-            scatter.writeChartToFile(new File(scoreCardDirName+"/Benchmark_v" + BenchmarkScore.benchmarkVersion + "_Scorecard_for_" + category.replace(' ', '_') + ".png"), 800);
+            scatter.writeChartToFile(new File(scoreCardDirName+"/Benchmark_v" + BenchmarkScore.benchmarkVersion + "_Scorecard_forQQ_" + category.replace(' ', '_') + ".png"), 800);
             return scatter;
         } catch (IOException e) {
             System.out.println("Couldn't generate Benchmark vulnerability chart for some reason.");

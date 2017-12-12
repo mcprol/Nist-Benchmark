@@ -31,8 +31,8 @@ public class PropertiesManager {
 		} catch (Exception e) {
 		}
 
-		System.out.println(props.keySet());
-		System.out.println(props.values());
+		// System.out.println(props.keySet());
+		// System.out.println(props.values());
 	}
 
 	public String getProperty(String key, String defaultValue) {
@@ -63,8 +63,7 @@ public class PropertiesManager {
 			props.store(out, null);
 			out.close();
 		} catch (Exception e) {
-			System.out
-					.println("There was a problem saving a property in the properties file");
+			System.out.println("There was a problem saving a property in the properties file");
 		}
 	}
 
@@ -83,8 +82,7 @@ public class PropertiesManager {
 			props.store(out, null);
 			out.close();
 		} catch (Exception e) {
-			System.out
-					.println("There was a problem removing a property from the properties file");
+			System.out.println("There was a problem removing a property from the properties file");
 		}
 
 	}
