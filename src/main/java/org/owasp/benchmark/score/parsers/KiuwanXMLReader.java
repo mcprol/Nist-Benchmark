@@ -25,11 +25,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.List;
+import java.util.Properties;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import org.owasp.benchmark.helpers.NistHelper;
+import org.owasp.benchmark.score.BenchmarkScore;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -38,6 +40,10 @@ import org.xml.sax.InputSource;
 
 public class KiuwanXMLReader extends Reader {
 	
+	private static final String TOOLNAME = "kiuwan";
+
+	private Properties cweMappings = null;
+
 	public TestResults parse( File f ) throws Exception {
 		trace("KiuwanReader. Parsing file: " + f.getAbsolutePath());
 		
@@ -52,7 +58,7 @@ public class KiuwanXMLReader extends Reader {
 		NamedNodeMap rootAttrs = root.getAttributes();
 		String version = rootAttrs.getNamedItem("version").getNodeValue();
 		
-		TestResults tr = new TestResults("Kiuwan", true, TestResults.ToolType.SAST);
+		TestResults tr = new TestResults(TOOLNAME, true, TestResults.ToolType.SAST);
 		tr.setToolVersion(version);
 		
 		// If the filename includes an elapsed time in seconds (e.g., TOOLNAME-seconds.xml), set the compute time on the scorecard.
@@ -72,7 +78,7 @@ public class KiuwanXMLReader extends Reader {
 			}
 		}
 		
-		dump(tr);
+		//dump(tr);
 		
 		return tr;
 	}
@@ -157,24 +163,34 @@ public class KiuwanXMLReader extends Reader {
 	}
 	
 	private Integer cweLookup(int cwe) {
-		switch (cwe) {
-		//case 22: // OPT.JAVA.SEC_JAVA.PathTraversalRule			
-		//	return 23; // Relative path traversal or CWE:36 Absolute path traversal
-			
-			
-		//case 326: // OPT.JAVA.SEC_JAVA.InsufficientKeySizeRule			
-		//case 327: // OPT.JAVA.SEC_JAVA.WeakEncryptionRule			
-		//case 328: // OPT.JAVA.SEC_JAVA.WeakCryptographicHashRule
-		//	return 327; // hash
-			
-		//case 338: // OPT.JAVA.SEC_JAVA.InsecureRandomnessRule			
-		//	return 330; // weekrand
-			
-		default:
-			return cwe;
-		}			
+		loadMappingFile();
+		
+		String mappedCWE = cweMappings.getProperty(Integer.toString(cwe));
+		
+		if (null != mappedCWE) {
+			cwe = Integer.parseInt(mappedCWE);
+		}
+
+		return cwe;
 	}
 	
+	private void loadMappingFile() {
+		if (null == cweMappings) {
+			cweMappings = new Properties();
+			
+			String fileName = BenchmarkScore.suiteDirName + "/mappings/" + TOOLNAME + "2bench.properties";
+	        try {
+				File file = new File(fileName);
+				
+				if (file.exists()) {
+					cweMappings.load(new FileInputStream(file)); 
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
 	private void trace(String msg) {
 		//System.out.println(msg);
 	}

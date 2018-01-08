@@ -392,7 +392,7 @@ public class ScatterVulns extends ScatterPlot {
 
     public static ScatterVulns generateComparisonChart(String scoreCardDirName, String category, Set<Report> toolResults, String focus) {
         try {
-            String scatterTitle = "OWASP Benchmark" + (BenchmarkScore.mixedMode ? " -" : " v" + BenchmarkScore.benchmarkVersion) + " " + category + " Comparison";
+            String scatterTitle = "NIST Benchmark" + (BenchmarkScore.mixedMode ? " -" : " v" + BenchmarkScore.benchmarkVersion) + " " + category + " Comparison";
             ScatterVulns scatter = new ScatterVulns(scatterTitle, 800, category, toolResults, focus);
             scatter.writeChartToFile(new File(scoreCardDirName+"/Benchmark_v" + BenchmarkScore.benchmarkVersion + "_Scorecard_forQQ_" + category.replace(' ', '_') + ".png"), 800);
             return scatter;

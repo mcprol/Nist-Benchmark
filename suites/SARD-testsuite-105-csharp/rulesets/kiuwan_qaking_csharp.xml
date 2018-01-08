@@ -1,0 +1,510 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<ruleset name="qaking_csharp" updated="">
+  <description>NIST Benchmark C# CWEs only</description>
+  <rule name="OPT.CSHARP.AvoidNullReferenceException" message="AvoidNullReferenceException: Use of NullPointerException Catch to Detect NULL Pointer Dereference" class="com.optimyth.csharp.rules.security.AvoidCatchNullReferenceExceptionRule" technology="CSHARP" active="true">
+    <description><![CDATA[Usually, NullReferenceException are obtained in the following ways:
+
+1. The program contains a null pointer reference override. So catch the resulting exception is easier than solving the underlying problem.
+
+2. Program throws an exception of type NullReferenceException explicitly to indicate an error condition.
+
+3. The code is part of a test harness that supplies unexpected input to the classes under test.
+
+Of these three circumstances, only the last is acceptable.]]></description>
+    <priority>3</priority>
+    <effort>4</effort>
+    <vulntype>Error handling and fault isolation</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[public class AECB {
+   public void method () {
+			 try {
+			    MysteryMethod();
+			  }
+			  catch (NullReferenceException npe) { // VIOLATION
+
+			  }
+    }
+}]]></example>
+    <repair><![CDATA[]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/395.html]]></reference>
+    <normatives>
+      <security><![CDATA[CWE:395,PCI-DSS:6.5.5]]></security>
+    </normatives>
+    <properties/>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.CommandInjection" message="CommandInjection: Improper Neutralization of Special Elements used in an OS Command ('OS Command Injection')" class="com.optimyth.csharp.rules.security.CommandInjectionRule" technology="CSHARP" active="true">
+    <description><![CDATA[The software constructs all or part of an operating system (OS) command using externally-controlled input, but it does not neutralize properly that input that could modify the intended command when it is sent to a function that executes the command (e.g. exec(), system(), or the backtick operator).
+
+The rule detects a path in code between an user-input statement (source) and a command execution call (sink), with command depending on non neutralized input. This allows for an attacker to change the intended command to execute or to add a malicious extra command, executed with the application rights.
+
+A neutralization function either validates inputs and report an (neutral) error without allowing command execution, or replaces sensitive shell characters in the input to avoid that the resulting command has different semantics.
+If possible, use "accept known good" input validation strategy (whitelist).
+
+First, ask yourself if you really need to execute OS commands. Most operating system operations can be performed using .NET framework.]]></description>
+    <priority>1</priority>
+    <effort>2</effort>
+    <vulntype>Injection</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Avoid execution of malicious commands.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[      public void processCommand()
+      {
+          Process.Start(Request.Item["COMMAND"]);  // VIOLATION
+      }]]></example>
+    <repair><![CDATA[      public void processCommand()
+      {
+          string commandToExecute = validate(Request.Item["COMMAND"]);
+          Process.Start(commandToExecute);  // OK
+      }]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/78.html]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A1,CWE:78,WASC:31,OWASP:2013:A1,SANS25:2010:9,SANS25:2011:2,PCI-DSS:6.5.1]]></security>
+    </normatives>
+    <properties>
+      <property name="inputs" descname="Comma-separated list of input types to consider as sources (user_input, file_input, database_input, system_information, other_input)" value="user_input, file_input, database_input, system_information, other_input"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.JSONInjection" message="JSONInjection: Avoid using non-neutralized user-controlled input in JSON entities" class="com.optimyth.csharp.rules.security.JSONInjection" technology="CSHARP" active="true">
+    <description><![CDATA[JSON is a lightweight, text-based data interchange format with parsers available in many languages.
+JSON format is often used for serializing and transmitting structured data over a network connection, as an alternative to XML.
+
+An attacker can take advantage of non-neutralized input data written to or interpreted as JSON in several ways, depending on
+the use of JSON in the application.
+
+A change on JSON entity structure can cause an application fail or in the worst case a businness logic manipulation.
+
+Input data must be validated before processing as JSON.]]></description>
+    <priority>2</priority>
+    <effort>2</effort>
+    <vulntype>Injection</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Prevent JSON injection attacks.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[      public void saveData()
+      {
+          string jsonData = Request.QueryString["DATA"];
+          Product item = JsonConvert.DeserializeObject<Product>(jsonData);   // sink
+      }]]></example>
+    <repair><![CDATA[      public void saveData()
+      {
+          string jsonData = Request.QueryString["DATA"];
+          jsonData = validate(jsonData);   // neutralization
+          Product item = JsonConvert.DeserializeObject<Product>(jsonData);  // ok
+      }]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/91.html]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A1,OWASP:2013:A1,CWE:91]]></security>
+    </normatives>
+    <properties/>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.LdapInjection" message="LdapInjection: Avoid non-neutralized user-controlled input in LDAP search filters" class="com.optimyth.csharp.rules.security.LdapInjectionRule" technology="CSHARP" active="true">
+    <description><![CDATA[Software constructs all or part of an LDAP query using externally-influenced input, but it does not neutralize or
+    incorrectly neutralizes special elements that could modify the intended LDAP query when sent to LDAP server.]]></description>
+    <priority>1</priority>
+    <effort>2</effort>
+    <vulntype>Injection</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[It improves the safety.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[      public void searchLdap()
+      {
+          DirectorySearcher src = new DirectorySearcher("(manager=" + Request.Item["USER"] + ")"); // VIOLATION
+      }]]></example>
+    <repair><![CDATA[      public void searchLdap()
+      {
+          string inputUser = Request.Item["USER"];
+          string filter = validate(inputUser);
+          DirectorySearcher src = new DirectorySearcher("(manager=" + filter + ")"); // OK
+      }]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/90.html,https://blogs.msdn.microsoft.com/securitytools/2009/08/10/ldap-injection-and-mitigation/]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A1,OWASP:2013:A1,OWASP:2013:A4,WASC:29,CWE:90,PCI-DSS:6.5.1]]></security>
+    </normatives>
+    <properties>
+      <property name="inputs" descname="Comma-separated list of input types to consider as sources (user_input, file_input, database_input, system_information, other_input)" value="user_input, file_input, database_input, system_information, other_input"/>
+      <property name="parametersAsSources" descname="If true, method parameters are considered untrusted inputs." value="false"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.NullDereference" message="NullDereference: NULL Pointer Dereference" class="com.optimyth.csharp.rules.security.NullDereferenceRule" technology="CSHARP" active="true">
+    <description><![CDATA[A null dereference is the access - for instance, to access a property or invoke a method - to a reference pointing to null, instead of a valid object.
+
+When it happens, a NullPointerException is thrown, aborting normal execution flow.
+
+Null dereference is a reliability problem, but it can also affect security in several ways:
+
+- Providing a mechanism to bypass security logic.
+- Generating debugging information visible for the attacker.
+- Leading to a non controlled end of the process, so a possible denial of service attack.]]></description>
+    <priority>1</priority>
+    <effort>2</effort>
+    <vulntype>Pointer and reference handling</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Avoid unexpected behaviours.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[		public string myMethod() {
+			string name = Request.QueryString["name"];
+	    string shortName = name.Trim();   // VIOLATION
+	    return shortName;
+		}]]></example>
+    <repair><![CDATA[		public string myMethod() {
+			string name = Request.QueryString["name"];
+			if (name == null) { return; }     // OK
+	    string shortName = name.Trim();
+	    return shortName;
+		}]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/476.html]]></reference>
+    <normatives>
+      <security><![CDATA[CWE:476]]></security>
+    </normatives>
+    <properties/>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.PathTraversal" message="PathTraversal: External Control of File Name or Path" class="com.optimyth.csharp.rules.security.PathTraversalRule" technology="CSHARP" active="true">
+    <description><![CDATA[Software uses external input to construct a pathname that is intended to identify a file or directory located underneath a restricted parent directory,
+but software does not properly neutralize elements within pathname, which may cause the pathname to resolve to a location outside the restricted directory.]]></description>
+    <priority>1</priority>
+    <effort>3</effort>
+    <vulntype>File handling</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Filesystem paths should not be controlled by user-controlled inputs.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[      public void removeOldFile()
+      {
+          File.Delete(Request.Item["OLD_FILE"]);  // VIOLACION
+      }]]></example>
+    <repair><![CDATA[      public void removeOldFile()
+      {
+          string fileToRemove = validate(Request.Item["OLD_FILE"]);
+          File.Delete(Request.Item["OLD_FILE"]);  // OK
+      }]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/73.html,http://cwe.mitre.org/data/definitions/22.html]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A5,PCI-DSS:6.5.8,CWE:22,SANS25:2010:7,OWASP:2013:A4,WASC:33,CWE:73,SANS25:2011:13]]></security>
+    </normatives>
+    <properties>
+      <property name="inputs" descname="Comma-separated list of input types to consider as sources (user_input, file_input, database_input, system_information, other_input)" value="user_input, file_input, database_input, system_information, other_input"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.SqlInjection" message="SqlInjection: Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')" class="com.optimyth.csharp.rules.security.SqlInjectionRule" technology="CSHARP" active="true">
+    <description><![CDATA[The software constructs all or part of an SQL command using externally-controlled input, but it does not neutralize properly
+that input that could modify the intended SQL command when it is sent to a database interaction method.]]></description>
+    <priority>1</priority>
+    <effort>3</effort>
+    <vulntype>Injection</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Prevent SQL injection attacks.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[  public void deleteOldData()
+  {
+    string user = Request.Form["OLD_USER"];
+    string query = "DELETE FROM MYTABLE WHERE USER ='" + user + "'";
+    using(SqlConnection conn = new SqlConnection(connString))
+    {
+      SqlCommand cmd = new SqlCommand(query, conn); // VIOLATION
+      cmd.Connection.Open();
+      cmd.ExecuteNonQuery();
+    }
+  }
+
+  public void select()
+  {
+    string filter = Request.Form["FILTER"];
+    string query = "SELECT F1, F2 FROM MYTABLE";
+    if( !String.IsNullOrEmpty(filter) ) query += " WHERE F3 = '" + filter + "'";
+
+    using(SqlConnection conn = new SqlConnection(connString))
+    {
+      SqlCommand cmd = new SqlCommand(query, conn); // VIOLATION
+      cmd.Connection.Open();
+      var reader = cmd.ExecuteReader();
+      // ...
+    }
+  }]]></example>
+    <repair><![CDATA[  public void deleteOldData()
+  {
+    string user = Request.Form["OLD_USER"];
+    string query = "DELETE FROM MYTABLE WHERE USER = @user";
+    using(SqlConnection conn = new SqlConnection(connString))
+    {
+      SqlCommand cmd = new SqlCommand(query, conn);
+      cmd.Parameters.AddWithValue("@user", user); // OK
+      cmd.Connection.Open();
+      cmd.ExecuteNonQuery();
+    }
+  }
+
+  public void select()
+  {
+    string filter = Request.Form["FILTER"];
+    string query = "SELECT F1, F2 FROM MYTABLE";
+    if( !String.IsNullOrEmpty(filter) ) query += " WHERE F3 = @filter";
+
+    using(SqlConnection conn = new SqlConnection(connString))
+    {
+      SqlCommand cmd = new SqlCommand(query, conn);
+      if( !String.IsNullOrEmpty(filter) ) cmd.Parameters.AddWithValue("@filter", filter); // OK
+      cmd.Connection.Open();
+      var reader = cmd.ExecuteReader();
+      // ...
+    }
+  }]]></repair>
+    <reference><![CDATA[https://www.owasp.org/index.php/SQL_Injection_Prevention_Cheat_Sheet,http://stackoverflow.com/questions/35163361/how-can-i-add-user-supplied-input-to-an-sql-statement,https://msdn.microsoft.com/library/ff648339.aspx]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A1,WASC:19,CWE:89,OWASP:2013:A1,SANS25:2010:2,SANS25:2011:1,PCI-DSS:6.5.1]]></security>
+    </normatives>
+    <properties>
+      <property name="inputs" descname="Comma-separated list of input types to consider as sources (user_input, file_input, database_input, system_information, other_input)" value="user_input, file_input, database_input, system_information, other_input"/>
+      <property name="parametersAsSources" descname="If true, method parameters are considered untrusted inputs." value="true"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.SystemInformationLeak" message="SystemInformationLeak: Exposure of System Data to an Unauthorized Control Sphere" class="com.optimyth.csharp.rules.security.SystemInformationLeakRule" technology="CSHARP" active="true">
+    <description><![CDATA[The fact that data from the system or debugging information can cause an attacker to gain information on how act for an attack on the system.
+This fact occurs when system data or debugging information are exposed to third parties through a sequence of output or a log function.]]></description>
+    <priority>3</priority>
+    <effort>3</effort>
+    <vulntype>Error handling and fault isolation</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[public class MyClass {
+  public static void Main(string[] args) {
+		try
+		{
+		  string cs="database=northwind;server=mySQLServer...";
+			SqlConnection conn=new SqlConnection(cs);
+			Console.WriteLine(cs); //VIOLACION
+		}
+		catch (Exception e)
+		{
+		  Response.Write(e.ToString()); //VIOLACION
+		}
+  }
+}]]></example>
+    <repair><![CDATA[public class MyClass {
+  public static void Main(string[] args) {
+		try
+		{
+		  string cs="database=northwind;server=mySQLServer...";
+			SqlConnection conn=new SqlConnection(cs);
+		}
+		catch (Exception e)
+		{
+		  Response.Write("Error to execute..."); //OK
+		}
+  }
+}]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/497.html,http://cwe.mitre.org/data/definitions/256.html,http://cwe.mitre.org/data/definitions/209.html]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A2,CWE:256,OWASP:2017:A6,OWASP:2013:A2,CWE:497,OWASP:2013:A5,PCI-DSS:6.5.5,SANS25:2010:17,CWE:209]]></security>
+    </normatives>
+    <properties>
+      <property name="inputs" descname="Comma-separated list of input types to consider as sources (user_input, file_input, database_input, system_information, other_input)" value="user_input, file_input, database_input, system_information, other_input"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.WeakCryptographicHash" message="WeakCryptographicHash: Weak cryptographic hash" class="com.optimyth.csharp.rules.security.WeakCryptographicHash" technology="CSHARP" active="true">
+    <tags><![CDATA[CAS351,CAS350,hash,crypto]]></tags>
+    <description><![CDATA[MD5, SHA-1 and RIPEMD160 are popular cryptographic hash functions often used to verify the integrity of messages, and for other usages.
+Recent advances in cryptanalysis have discovered weaknesses in both algorithms. Consequently, MD5, SHA-1 or RIPEMD160
+should no longer be relied upon in security-critical contexts.
+
+Techniques for breaking MD5 hashes are advanced and widely available enough that the algorithm must not be relied upon for security.
+In the case of SHA-1 or RIPEMD160, current techniques still require a significant amount of computational power and are more difficult to implement.
+However, attackers have found the Achilles heal for the algorithm, and techniques for breaking it will likely lead to the discovery
+of even faster attacks. In particular, Google has reported recently an example of colliding SHA-1 hashes.
+
+RIPEMD-160 may be used (for some time in the future) in legacy applications.
+
+The rule checks also for HMAC (message authentication codes based on hash functions) implementations for the forbidden hash algorithms.
+HMACSHA384 is considered safe; MACTripleDES should be used only in legacy applications; HMACMD5 or HMACSHA1 should not be used
+in new applications, even when the security of such HMAC schemes is not as much compromised as with their hash function counterparts.]]></description>
+    <priority>1</priority>
+    <effort>2</effort>
+    <vulntype>Encryption and randomness</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[using System.Security.Cryptography;
+...
+var hashAlg = MD5.Create(); // VIOLATION]]></example>
+    <repair><![CDATA[using System.Security.Cryptography;
+...
+var hashAlg = SHA256.Create(); // FIXED]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/327.html,https://msdn.microsoft.com/en-us/library/mt612873.aspx,https://en.wikipedia.org/wiki/Hash_function_security_summary,https://msdn.microsoft.com/en-us/library/mt612872.aspx]]></reference>
+    <normatives>
+      <security><![CDATA[CWE:327,OWASP:2017:A3,WASC:13,SANS25:25,OWASP:2013:A6]]></security>
+    </normatives>
+    <properties>
+      <property name="allowedAlgorithms" descname="Comma-separated list of allowed hash functions." value="RIPEMD160, HMACRIPEMD160, MACTripleDES, SHA256, SHA384, SHA512, HMACSHA256, HMACSHA384, HMACSHA512"/>
+      <property name="forbiddenAlgorithms" descname="List of weak hash algorithms" value="MD5, SHA1, HMACMD5, HMACSHA1"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.WeakSymmetricEncryptionAlgorithm" message="WeakSymmetricEncryptionAlgorithm: Weak symmetric encryption algorithm" class="com.optimyth.csharp.rules.security.WeakSymmetricEncryptionAlgorithm" technology="CSHARP" active="true">
+    <tags><![CDATA[CAS351,CAS350,crypto]]></tags>
+    <description><![CDATA[Encryption algorithms like DES, Triple-DES and RC2 are nowadays too weak for cryptographic usage,
+in particular for ensuring information confidentiality.
+
+DES is currently broken, as an small key size renders it unsafe against brute-force attacks.
+
+RC2 is currently broken, as a related-key attack, where an attacker finds mathematical relationships
+between key values, renders it unsafe as well.
+
+Triple-DES (or 3DES) is weak, and should be migrated to a more robust standard cipher.]]></description>
+    <priority>1</priority>
+    <effort>2</effort>
+    <vulntype>Encryption and randomness</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[using System.Security.Cryptography;
+...
+var hashAlg = DES.Create(); // VIOLATION]]></example>
+    <repair><![CDATA[using System.Security.Cryptography;
+...
+var hashAlg = Aes.Create(); // FIXED]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/327.html,https://msdn.microsoft.com/en-us/library/mt612873.aspx,https://msdn.microsoft.com/en-us/library/mt612872.aspx]]></reference>
+    <normatives>
+      <security><![CDATA[CWE:327,OWASP-M:2014:M4,SANS25:2011:19,OWASP:2017:A3,SANS25:2010:24,PCI-DSS:6.5.3,OWASP:2013:A6,WASC:04]]></security>
+    </normatives>
+    <properties>
+      <property name="allowedAlgorithms" descname="List of allowed cipher algorithms" value="AES,RIJNDAEL"/>
+      <property name="forbiddenAlgorithms" descname="List of weak cipher algorithms" value="DES,RC2,TripleDES"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.WeakSymmetricEncryptionModeOfOperation" message="WeakSymmetricEncryptionModeOfOperation: Do not use weak modes of operation with symmetric encryption" class="com.optimyth.csharp.rules.security.WeakSymmetricEncryptionModeOfOperation" technology="CSHARP" active="true">
+    <tags><![CDATA[crypto]]></tags>
+    <description><![CDATA[For block ciphers, like AES, Triple-DES or RC5, mode of operation is the way the plaintext/ciphertext blocks are combined during
+encryption/decyption of the message.
+
+Many modes of operation (like CTR, OFB or CFB) transforms a block cipher into a stream cipher. Other modes (named Authenticated Encryption modes)
+were designed to combine secrecy and authentication in a single cryptographic primitive (like OCB, CCM or GCM modes).
+
+This rule detects modes that are considered too weak for general usage. For example, ECB mode (the simplest mode, with no feedback)
+is typically a too-weak mode because encrypting the same block always produce the same cipher block. This allows the attacker
+to (1) detect whether two ECB-encrypted messages are identical, (2) detect whether two EBC-encrypted messages share a common prefix
+or other common substrings aligned at block boundaries, or (3) detect whether (and where) a single ECB-encrypted message contains
+repetitive data (zeros, spaces or null bytes), repeated header fields, or repeated phrases in text, and (4) without additional message
+authentication, an attacker can insert previously ciphertext blocks anywhere ("too-much malleable").
+
+A real case that lead to a massive real-world data compromise was the 2013 Adobe password database leak.
+
+Please note that most modes (except EBC) require a unique binary sequence, called initialization vector (IV) for each encryption operation,
+that should not be reused (and typically should be random for most modes). Besides choosing a proper mode of operation,
+a proper IV generation and last-block padding should be also taken into account.]]></description>
+    <priority>1</priority>
+    <effort>3</effort>
+    <vulntype>Encryption and randomness</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[using System;
+using System.Security.Cryptography;
+
+public class Encryption {
+  public void encrypt(byte[] cipherKey) {
+    var cipher = new TripleDESCryptoServiceProvider();
+    cipher.Mode = CipherMode.ECB; // VIOLATION
+    cipher.Padding = PaddingMode.PKCS7;
+    cipher.Key = cipherKey;
+    // ...
+  }
+}]]></example>
+    <repair><![CDATA[using System;
+using System.Security.Cryptography;
+
+public class Encryption {
+  public void encrypt(byte[] cipherKey) {
+    var cipher = new TripleDESCryptoServiceProvider();
+    cipher.Mode = CipherMode.CBC; // FIXED
+    // ... CBC mode needs an initial vector.
+    // Use a different cryptographic random number for each message
+    cipher.IV = GenerateInitialVector();
+    cipher.Padding = PaddingMode.PKCS7;
+    cipher.Key = cipherKey;
+    // pass the IV with the encrypted bytes for decryption
+  }
+}]]></repair>
+    <reference><![CDATA[http://crypto.stackexchange.com/questions/20941/why-shouldnt-i-use-ecb-encryption,http://cwe.mitre.org/data/definitions/327.html,https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation]]></reference>
+    <normatives>
+      <security><![CDATA[CWE:327,OWASP-M:2014:M3,SANS25:2011:19,OWASP-M:2014:M6,PCI-DSS:6.5.8,OWASP:2017:A3,SANS25:2010:24,OWASP:2013:A6,WASC:04]]></security>
+    </normatives>
+    <properties>
+      <property name="forbiddenModes" descname="List of weak modes of operation for block ciphers." value="ECB"/>
+    </properties>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <rule name="OPT.CSHARP.XMLInjection" message="XMLInjection: XML Injection (aka Blind XPath Injection)" class="com.optimyth.csharp.rules.security.XMLInjection" technology="CSHARP" active="true">
+    <description><![CDATA[The extensible markup language (XML) is used in a wide range of applications, from remote procedure calls to storage, exchange and retrieval of data.
+
+By injecting XML content or structures into an XML document, an attacker can alter the logic of the application or insert malicious content.
+
+Input data must be validated before writing into an XML document.]]></description>
+    <priority>2</priority>
+    <effort>2</effort>
+    <vulntype>Injection</vulntype>
+    <impl>1</impl>
+    <benefits><![CDATA[Prevent XML injection attacks.]]></benefits>
+    <inconvenients><![CDATA[]]></inconvenients>
+    <example><![CDATA[      public void saveData()
+      {
+          string element = Request.QueryString["ELEMENT"];
+          string value = Request.QueryString["VALUE"];
+          using (XmlWriter writer = XmlWriter.Create("foo.xml"))
+          {
+            writer.WriteStartElement ("product");
+            writer.WriteElementString (element, value);  // VIOLATION
+            writer.WriteEndElement();
+          }
+      }]]></example>
+    <repair><![CDATA[      public void saveData()
+      {
+          string element = Request.QueryString["ELEMENT"];
+          string value = Request.QueryString["VALUE"];
+          using (XmlWriter writer = XmlWriter.Create("foo.xml"))
+          {
+            writer.WriteStartElement ("product");
+            writer.WriteElementString (System.SecurityElement.Escape(element), System.SecurityElement.Escape(value));  // OK
+            writer.WriteEndElement();
+          }
+      }]]></repair>
+    <reference><![CDATA[http://cwe.mitre.org/data/definitions/91.html]]></reference>
+    <normatives>
+      <security><![CDATA[OWASP:2017:A1,OWASP:2013:A1,WASC:23,CWE:91]]></security>
+    </normatives>
+    <properties/>
+    <idcat>OPT.CRITERIUM_VALUE.CQM.SECURITY</idcat>
+  </rule>
+  <categories>
+    <category name="CSHARP" technology="CSHARP" active="true" weight="1.0">
+      <description><![CDATA[CSHARP rules]]></description>
+      <children>
+        <category name="OPT.CRITERIUM_VALUE.CQM.EFFICIENCY" technology="CSHARP" active="true" weight="8.0">
+          <description><![CDATA[Efficiency]]></description>
+        </category>
+        <category name="OPT.CRITERIUM_VALUE.CQM.MAINTAINABILITY" technology="CSHARP" active="true" weight="10.0">
+          <description><![CDATA[Maintainability]]></description>
+        </category>
+        <category name="OPT.CRITERIUM_VALUE.CQM.PORTABILITY" technology="CSHARP" active="true" weight="5.0">
+          <description><![CDATA[Portability]]></description>
+        </category>
+        <category name="OPT.CRITERIUM_VALUE.CQM.RELIABILITY" technology="CSHARP" active="true" weight="10.0">
+          <description><![CDATA[Reliability]]></description>
+        </category>
+        <category name="OPT.CRITERIUM_VALUE.CQM.SECURITY" technology="CSHARP" active="true" weight="10.0">
+          <description><![CDATA[Security]]></description>
+        </category>
+      </children>
+    </category>
+  </categories>
+</ruleset>

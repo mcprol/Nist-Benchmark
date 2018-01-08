@@ -26,6 +26,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -52,12 +53,13 @@ import org.owasp.benchmark.score.parsers.Counter;
 import org.owasp.benchmark.score.parsers.KiuwanXMLReader;
 import org.owasp.benchmark.score.parsers.OverallResult;
 import org.owasp.benchmark.score.parsers.OverallResults;
+import org.owasp.benchmark.score.parsers.SonarCSVReader;
 import org.owasp.benchmark.score.parsers.TestCaseResult;
 import org.owasp.benchmark.score.parsers.TestResults;
+import org.owasp.benchmark.score.report.HighChartsGenerator;
 import org.owasp.benchmark.score.report.Report;
 import org.owasp.benchmark.score.report.ScatterHome;
 import org.owasp.benchmark.score.report.ScatterVulns;
-import org.owasp.benchmark.score.report.ScatterPlot;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
@@ -67,6 +69,8 @@ import org.jfree.chart.axis.ValueAxis;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.category.DefaultCategoryDataset;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -75,11 +79,16 @@ import org.xml.sax.InputSource;
 
 public class BenchmarkScore {
 
-	private static final String GUIDEFILENAME = "OWASP_Benchmark_Guide.html";
-	private static final String HOMEFILENAME = "OWASP_Benchmark_Home.html";    
+	private static final String GUIDEFILENAME = "NIST_Benchmark_Guide.html";
+	private static final String HOMEFILENAME = "NIST_Benchmark_Home.html";    
     public static final String pathToScorecardResources = "src/main/resources/scorecard/";
+
+    public static String suiteDirName = "suite";
+    public static String expectedResultFile = "expected";
+    public static String resultsDirName = "result";
     public static String scoreCardDirName = "scorecard";
-	public static String benchmarkVersion = null;
+
+    public static String benchmarkVersion = null;
     
     // This is used to indicate that results from multiple versions of the Benchmark are included in these results.
 	// Each set in their own directory with their associated expectedresults file.
@@ -101,43 +110,26 @@ public class BenchmarkScore {
 	 */
 	private static Set<Report> toolResults = new TreeSet<Report>();
 	
-	private static final String usageNotice = "Usage: BenchmarkScore expected actual (optional) toolname anonymous/show_ave_only\n"
-		+ "  expected - path of expected results file from Benchmark distribution.\n"
-		+ "    Use value: 'mixed' if there are multiple results subdirectories for different versions of the Benchmark.\n"
-		+ "  actual   - results file, or directory with result files from tools (.ozasmt, .fpr, .fvdl, .xml, etc...\n"
-		+ "    For 'mixed' mode, this is the root directory that contains subdirectories with results files.\n"
-		+ "  scorecard   - target scorecard directory.\n"
-		+ "  An optional 4rd parameter - Name of tool to focus on, or 'none'. This highlights that particular tool in the"
-		+ "    generated charts."
-		+ "  And two optional 5th parameters - can only use one or the other"
-		+ "    anonymous - tells the scorecard generator to hide the names of commercial tools.\n"
-		+ "    show_ave_only - tells the scorecard generator to hide the commercial tool results"
-		+ "      entirely, and only show the commercial average.\n";
+	private static final String usageNotice = "Usage: BenchmarkScore suite_root_dir suite_expected_results\n"
+		+ "  suite - suite name.\n"
+		+ "  suite_root_dir - root directory for suite.\n"
+		+ "  suite_expected_results - expected result file\n"
+		+ "\nNotes:\n"
+		+ "  suite_root_dir/results directory with result files from tools (.ozasmt, .fpr, .fvdl, .xml, etc...)\n"
+		+ "  suite_root_dir/scorecard - target scorecard directory.\n";
 	
 	public static void main(String[] args) {
-		if ( args == null || args.length < 3 ) {
+		if (args.length != 3) {
 			System.out.println( usageNotice );
-			System.exit( -1 );
+			System.exit( -1 );				
 		}
 		
-		scoreCardDirName = args[2];
+		benchmarkVersion = args[0];
+		suiteDirName = args[1];
+		expectedResultFile = args[2];
+		resultsDirName = args[1] + "/results";
+		scoreCardDirName = args[1] + "/scorecard";
 
-        if ( args.length > 3 ) {
-            focus = args[3].replace(' ','_');
-        }
-        
-		if (args.length > 4) {
-			if ("anonymous".equalsIgnoreCase(args[4])) {
-				anonymousMode = true;
-			} else if ("show_ave_only".equalsIgnoreCase(args[4])) {
-				showAveOnlyMode = true;
-			} else {
-				System.out.println( usageNotice );
-				System.exit( -1 );				
-			}
-		}
-		
-		
 		// Prepare the scorecard results directory for the newly generated scorecards
 		// Step 1: Create the dir if it doesn't exist, or delete everything in it if it does
         File scoreCardDir = new File(scoreCardDirName);
@@ -163,10 +155,6 @@ public class BenchmarkScore {
             Files.copy(Paths.get(pathToScorecardResources + HOMEFILENAME),
                     Paths.get( scoreCardDirName + "/" + HOMEFILENAME),
                     StandardCopyOption.REPLACE_EXISTING );
-            
-            Files.copy(Paths.get(pathToScorecardResources + GUIDEFILENAME),
-                    Paths.get( scoreCardDirName + "/" + GUIDEFILENAME),
-                    StandardCopyOption.REPLACE_EXISTING );
         } catch( IOException e ) {
             System.out.println( "Problem copying home and guide files" );
             e.printStackTrace();
@@ -179,170 +167,54 @@ public class BenchmarkScore {
         bartheme.apply(barchart);
         CategoryPlot catplot = barchart.getCategoryPlot();
         initializeBarPlot( catplot );
-        
-        //Testing...
-        /*
-        bardataset.addValue(20.3, "Muuu", "CWE-111");
-        bardataset.addValue(20.2, "Baa", "CWE-111");
-        bardataset.addValue(100.0, "Muuu", "CWE-113");
-        bardataset.addValue(75.0, "Baa", "CWE-113");
-        */
-		
+        		
         // Step 4: Read the expected results so we know what each tool 'should do'
-		try {
-			
-			if ("mixed".equalsIgnoreCase(args[0])) {
-				
-				mixedMode = true; // Tells anyone that cares that we aren't processing a single version of Benchmark results
-				
-				File f = new File( args[1] );
-				if (!f.exists()) {
-					System.out.println( "Error! - results directory: '" + f.getAbsolutePath() + "' doesn't exist.");
-					System.exit(-1);
-				}
-				if ( !f.isDirectory() ) {
-					System.out.println( "Error! - results parameter is a file: '" + f.getAbsolutePath() 
-						+ "' but must be a directory when processing results in 'mixed' mode.");
-					System.exit(-1);
-				}
-				
-				// Go through each file in the root directory.
-				// -- 1st find each directory. And then within each of those directories:
-				//    -- 1st find the expected results file in that directory
-				//    -- and then each of the actual results files in that directory
-    			for ( File rootDirFile : f.listFiles() ) {
-    				
-    				if (rootDirFile.isDirectory()) {
-    					
-    					// Process this directory
-    					TestResults expectedResults = null;
-    					String expectedResultsFilename = null;
-    			        // Step 4a: Find and process the expected results file so we know what each tool in this directory 'should do'
-    	    			for ( File resultsDirFile : rootDirFile.listFiles() ) {
-    	    				
-    	    				if (resultsDirFile.getName().startsWith("expectedresults-")) {
-    	    					if (expectedResults != null) {
-        	    					System.out.println( "Found 2nd expected results file " + resultsDirFile.getAbsolutePath() 
-        	    							+ " in same directory. Can only have 1 in each results directory");
-        	    					System.exit(-1);
-    	    					}
-    	    					
-    	    					// read in the expected results for this directory of results
-    	    					expectedResults = readExpectedResults( resultsDirFile );
-        	    				if (expectedResults == null) {
-        	    					System.out.println( "Couldn't read expected results file: " 
-        	    							+ resultsDirFile.getAbsolutePath());
-        	    					System.exit(-1);		
-            	    			} // end if
-        	    				
-    	    					expectedResultsFilename = resultsDirFile.getName();
-    	    					if (benchmarkVersion == null) {
-    	    						benchmarkVersion = expectedResults.getBenchmarkVersion();
-    	    					} else benchmarkVersion += "," + expectedResults.getBenchmarkVersion();
-        	    				System.out.println("\nFound expected results file: " + resultsDirFile.getAbsolutePath());
-        	    			} // end if
-    	    			} // end for loop going through each file looking for expected results file
-    	    			
-    	    			// Make sure we found an expected results file, before processing the results
-    	    			if (expectedResults == null) {
-	    					System.out.println( "Couldn't find expected results file in results directory: " 
-	    						+ rootDirFile.getAbsolutePath());
-	    					System.out.println( "Expected results file has to be a .csv file that starts with: 'expectedresults-'");
-	    					System.exit(-1);
-	    				}
-    	    			
-    			        // Step 5a: Go through each result file and generate a scorecard for that tool.
-    					if (!anonymousMode) {
-    		    			for ( File actual : rootDirFile.listFiles() ) {
-    		    				// Don't confuse the expected results file as an actual results file if its in the same directory
-    		    				if (!actual.isDirectory() && !expectedResultsFilename.equals(actual.getName()))
-    		    					process( actual, expectedResults, toolResults);
-    		    			}
-    					} else {
-    						// To handle anonymous mode, we are going to randomly grab files out of this directory
-    						// and process them. By doing it this way, multiple runs should randomly order the commercial
-    						// tools each time.
-    						List<File> files = new ArrayList();
-    		    			for ( File file : rootDirFile.listFiles() ) {
-    		    				files.add(file);
-    		    			}
-    						
-    						SecureRandom generator = SecureRandom.getInstance("SHA1PRNG");
-    						while (files.size() > 0) {
-    							// Get a random, positive integer
-    							int fileToGet = Math.abs(generator.nextInt(files.size()));
-    							File actual = files.remove(fileToGet);
-    		    				// Don't confuse the expected results file as an actual results file if its in the same directory
-    		    				if (!actual.isDirectory() && !expectedResultsFilename.equals(actual.getName()))
-    		    					process( actual, expectedResults, toolResults);
-    						}
-    					}
-    				} // end if a directory
-    			}  // end for loop through all files in the directory
-
-    		// process the results the normal way with a single results directory
+		try {				
+	        // Step 4b: Read the expected results so we know what each tool 'should do'
+			File expected = new File( expectedResultFile );
+			TestResults expectedResults = readExpectedResults( expected );
+			if (expectedResults == null) {
+				System.out.println( "Couldn't read expected results file: " + expected);
+				System.exit(-1);
 			} else {
-			
-		        // Step 4b: Read the expected results so we know what each tool 'should do'
-				File expected = new File( args[0] );
-				TestResults expectedResults = readExpectedResults( expected );
-				if (expectedResults == null) {
-					System.out.println( "Couldn't read expected results file: " + expected);
-					System.exit(-1);
+				System.out.println( "Read expected results from file: " + expected.getAbsolutePath());
+				int totalResults = expectedResults.totalResults();
+				if (totalResults != 0) {
+					System.out.println( totalResults + " results found.");
+		            //benchmarkVersion = expectedResults.getBenchmarkVersion();
 				} else {
-					System.out.println( "Read expected results from file: " + expected.getAbsolutePath());
-					int totalResults = expectedResults.totalResults();
-					if (totalResults != 0) {
-						System.out.println( totalResults + " results found.");
-			            benchmarkVersion = expectedResults.getBenchmarkVersion();
-					} else {
-						System.out.println( "Error! - zero expected results found in results file.");
-						System.exit(-1);
-					}
-				}
-			
-		        // Step 5b: Go through each result file and generate a scorecard for that tool.
-				File f = new File( args[1] );
-				if (!f.exists()) {
-					System.out.println( "Error! - results file: '" + f.getAbsolutePath() + "' doesn't exist.");
+					System.out.println( "Error! - zero expected results found in results file.");
 					System.exit(-1);
 				}
-				if ( f.isDirectory() ) {
-					if (!anonymousMode) {
-		    			for ( File actual : f.listFiles() ) {
-		    				// Don't confuse the expected results file as an actual results file if its in the same directory
-		    				if (!actual.isDirectory() && !expected.getName().equals(actual.getName()))
-		    					process( actual, expectedResults, toolResults);
-		    			}
-					} else {
-						// To handle anonymous mode, we are going to randomly grab files out of this directory
-						// and process them. By doing it this way, multiple runs should randomly order the commercial
-						// tools each time.
-						List<File> files = new ArrayList();
-		    			for ( File file : f.listFiles() ) {
-		    				files.add(file);
-		    			}
-						
-						SecureRandom generator = SecureRandom.getInstance("SHA1PRNG");
-						while (files.size() > 0) {
-							int randomNum = generator.nextInt();
-							// FIXME: Get Absolute Value better
-							if (randomNum < 0) randomNum *= -1;
-							int fileToGet = randomNum % files.size();
-							File actual = files.remove(fileToGet);
-		    				// Don't confuse the expected results file as an actual results file if its in the same directory
-		    				if (!actual.isDirectory() && !expected.getName().equals(actual.getName()))
-		    					process( actual, expectedResults, toolResults);
-						}
-					}
-	    			
-				} else {
-					// This will process a single results file, if that is what the 2nd parameter points to.
-					// This has never been used.
-				    process( f, expectedResults, toolResults );
-				}
-			} // end else
+			}
+		
+	        // Step 5b: Go through each result file and generate a scorecard for that tool.
+			File f = new File( resultsDirName );
+			if (!f.exists()) {
+				System.out.println( "Error! - results file: '" + f.getAbsolutePath() + "' doesn't exist.");
+				System.exit(-1);
+			}
+
+			// To handle anonymous mode, we are going to randomly grab files out of this directory
+			// and process them. By doing it this way, multiple runs should randomly order the commercial
+			// tools each time.
+			List<File> files = new ArrayList();
+			for ( File file : f.listFiles() ) {
+				files.add(file);
+			}
 			
+			SecureRandom generator = SecureRandom.getInstance("SHA1PRNG");
+			while (files.size() > 0) {
+				int randomNum = generator.nextInt();
+				// FIXME: Get Absolute Value better
+				if (randomNum < 0) randomNum *= -1;
+				int fileToGet = randomNum % files.size();
+				File actual = files.remove(fileToGet);
+				// Don't confuse the expected results file as an actual results file if its in the same directory
+				if (!actual.isDirectory() && !expected.getName().equals(actual.getName()))
+					process( actual, expectedResults, toolResults);
+			}
+
 			System.out.println( "Tool scorecards computed." );
 			
 			
@@ -369,7 +241,10 @@ public class BenchmarkScore {
 		updateMenus(toolResults, catSet);
 		
         // Step 8: Generate the overall comparison chart for all the tools in this test
-        ScatterHome.generateComparisonChart(scoreCardDirName, toolResults, focus);
+		HighChartsGenerator.generateToolsChartData(scoreCardDirName, "NIST_Benchmark_Home", "NIST Benchmark '" + BenchmarkScore.benchmarkVersion + "' Tools Comparison", toolResults);
+        //ScatterHome.generateComparisonChart(scoreCardDirName, toolResults, focus);
+
+		HighChartsGenerator.generateCWEChartData(scoreCardDirName, "cwe_NIST_Benchmark_Home", "NIST Benchmark '" + BenchmarkScore.benchmarkVersion + "' CWE Comparison", toolResults);
         
         //### Generate all CWE barchart
         try {
@@ -397,6 +272,7 @@ public class BenchmarkScore {
 		System.exit(0);
 	}
 
+	
 	/**
 	 * The method takes in a tool scan results file and determined how well that tool did against the benchmark.
 	 * @param f - The results file to process. This is the native results file from the tool.
@@ -671,6 +547,8 @@ public class BenchmarkScore {
             if ( line2.startsWith( "<Report")) {
                 tr = new KiuwanXMLReader().parse( fileToParse );
             }
+		} else if ( filename.endsWith( ".sonar_csv" ) ) {
+            tr = new SonarCSVReader().parse( fileToParse );
 		}
         
         // If the version # of the tool is specified in the results file name, extract it, and set it.
@@ -723,7 +601,9 @@ public class BenchmarkScore {
     private static void analyze( TestResults expected, TestResults actual ) {
     	
     	// Set the version of the Benchmark these actual results are being compared against
-    	actual.setBenchmarkVersion(expected.getBenchmarkVersion());
+    	//actual.setBenchmarkVersion(expected.getBenchmarkVersion());
+    	actual.setBenchmarkVersion(BenchmarkScore.benchmarkVersion);
+    	
     		
     	// If in anonymous mode, anonymize the tool name if its a commercial tool before its used to compute anything.
 	    // unless its the tool of 'focus'
@@ -1071,7 +951,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
                 Path htmlfile = Paths.get( scoreCardDirName + "/" + filename + ".html" );
                 Files.copy(Paths.get(pathToScorecardResources + "vulntemplate.html" ), htmlfile, StandardCopyOption.REPLACE_EXISTING );
                 String html = new String(Files.readAllBytes( htmlfile ) );
-                String fullTitle = "OWASP Benchmark Scorecard for " + cat;
+                String fullTitle = "NIST Benchmark Scorecard for " + cat;
 
                 html = html.replace("${image}", filename + ".png" );
                 html = html.replace( "${title}", fullTitle );
@@ -1130,40 +1010,6 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
             }
         } // end for loop
         
-        // if we computed a commercial average, then add the last row to the table AND create the file and write the HTML to it.
-        if (htmlForCommercialAverages != null) {
-        	
-        	htmlForCommercialAverages.append("<tr>");
-        	htmlForCommercialAverages.append("<td>Average across all categories for " + commercialToolTotal + " tools</td>");
-        	htmlForCommercialAverages.append("<td></td>");
-        	htmlForCommercialAverages.append("<td>" 
-        			+ new DecimalFormat("0.0").format((float) commercialLowTotal/(float) numberOfVulnCategories) + "</td>");
-        	htmlForCommercialAverages.append("<td>" 
-        			+ new DecimalFormat("0.0").format((float) commercialAveTotal/(float) numberOfVulnCategories) + "</td>");
-        	htmlForCommercialAverages.append("<td>" 
-        			+ new DecimalFormat("0.0").format((float) commercialHighTotal/(float) numberOfVulnCategories) + "</td>");
-        	htmlForCommercialAverages.append("<td></td>");
-        	htmlForCommercialAverages.append("</tr>\n");
-        	
-            try {
-
-            	commercialAveScorecardFilename = "Benchmark_v" + benchmarkVersion + "_Scorecard_for_Commercial_Tools";
-	            Path htmlfile = Paths.get( scoreCardDirName + "/" + commercialAveScorecardFilename + ".html" );
-	            Files.copy(Paths.get(pathToScorecardResources + "commercialAveTemplate.html" ), htmlfile, StandardCopyOption.REPLACE_EXISTING );
-	            String html = new String(Files.readAllBytes( htmlfile ) );
-	
-	            html = html.replace( "${version}", benchmarkVersion );
-	            
-	        	String table = htmlForCommercialAverages.toString();
-	    		html = html.replace("${table}", table);
-	            
-	            Files.write( htmlfile, html.getBytes() );
-	            System.out.println("Commercial average scorecard computed.");
-            } catch( IOException e ) {
-                System.out.println( "Error generating commercial scorecard: " + e.getMessage() );
-                e.printStackTrace();
-            }
-        } // end if
 	}
 	
     /**
@@ -1297,17 +1143,6 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 			}
         }
         
-        // Before finishing, check to see if there is a commercial average scorecard file, and if so
-        // Add it to the menu
-        if (commercialAveScorecardFilename != null) {
-            sb.append("<li><a href=\"");
-            sb.append(commercialAveScorecardFilename);
-            sb.append(".html\">");
-            sb.append("Commercial Average");
-            sb.append("</a></li>");
-            sb.append(System.lineSeparator());        	
-        }
-        
         String toolmenu = sb.toString();
         
         // create vulnerability menu
@@ -1358,7 +1193,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
         return doc;
 	}
 	
-    private static StandardChartTheme initializeBarTheme() {
+	private static StandardChartTheme initializeBarTheme() {
         String fontName = "Arial";
         StandardChartTheme theme = (StandardChartTheme) org.jfree.chart.StandardChartTheme.createJFreeTheme();
         theme.setExtraLargeFont(new Font(fontName, Font.PLAIN, 24)); // title
@@ -1368,7 +1203,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
         return theme;
     }
     
-    public static void initializeBarPlot(CategoryPlot catplot) {
+    private static void initializeBarPlot(CategoryPlot catplot) {
     	ValueAxis rangeAxis = (ValueAxis) catplot.getRangeAxis();
     	CategoryAxis domainAxis = (CategoryAxis) catplot.getDomainAxis();
 
@@ -1381,7 +1216,7 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
         rangeAxis.setUpperMargin(10);    	
     }
 	
-    public static void writeBarChartToFile(File f, int width, int height) throws IOException {
+    private static void writeBarChartToFile(File f, int width, int height) throws IOException {
         FileOutputStream stream = new FileOutputStream(f);
         ChartUtilities.writeChartAsPNG(stream, barchart, width, height);
         stream.close();

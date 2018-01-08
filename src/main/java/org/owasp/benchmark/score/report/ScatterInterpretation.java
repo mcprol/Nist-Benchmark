@@ -34,7 +34,7 @@ import org.jfree.ui.TextAnchor;
 public class ScatterInterpretation extends ScatterPlot {
 
     public ScatterInterpretation( int height ) {
-        display("          OWASP Benchmark Results Interpretation Guide", height);
+        display("          NIST Benchmark Results Interpretation Guide", height);
     }
 
     private JFreeChart display(String title, int height ) {
