@@ -18,12 +18,15 @@
 
 package org.owasp.benchmark.score.report;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.owasp.benchmark.score.BenchmarkScore;
@@ -40,10 +43,12 @@ public class Report implements Comparable<Report> {
 	private ToolType toolType;
 	private String toolName = "not specified";
 	private final String toolNameAndVersion;
+	private String toolVersion = "";
 	private final String benchmarkVersion;
 	private final Map<String, Counter> scores;
 	private final OverallResults overallResults;
 	private final String reportPath;
+	private String totalProc = "";
 
 	// The name of the file that contains this scorecard report
 	private String filename = null;
@@ -55,11 +60,12 @@ public class Report implements Comparable<Report> {
 		this.isCommercial = isCommercial;
 		this.toolType = toolType;
 		this.toolName = actualResults.getTool();
+		this.toolVersion = actualResults.getToolVersion();
 		this.toolNameAndVersion = actualResults.getToolNameAndVersion();
 		this.toolType = actualResults.toolType;
 		this.benchmarkVersion = actualResults.getBenchmarkVersion();
 
-		String fullTitle = "NIST Benchmark Scorecard for " + actualResults.getToolNameAndVersion();// + getToolName() + version;
+		String fullTitle = "NIST Benchmark Scorecard for: " + actualResults.getToolNameAndVersion();// + getToolName() + version;
 		// If not in anonymous mode OR the tool is not commercial, add the type at the end of the name
 		// It's not added to anonymous commercial tools, because it would be redundant.
 		if (!BenchmarkScore.anonymousMode || !isCommercial) {
@@ -97,6 +103,10 @@ public class Report implements Comparable<Report> {
 		return this.toolName;
 	}
 
+	public String getToolVersion() {
+		return this.toolVersion;
+	}
+
 	public String getToolNameAndVersion() {
 		return this.toolNameAndVersion;
 	}
@@ -113,6 +123,9 @@ public class Report implements Comparable<Report> {
 		return this.benchmarkVersion;
 	}
 
+	public String getTotalProc() {
+		return this.totalProc;
+	}
 	/**
 	 * Gets the name of the file that contains this scorecard.
 	 * 
@@ -147,13 +160,18 @@ public class Report implements Comparable<Report> {
 		html = html.replace("${time}", or.getTime());
 		html = html.replace("${score}", "" + new DecimalFormat("#0.00%").format(or.getScore()));
 		html = html.replace("${tool}", actualResults.getTool());
+		html = html.replace("${toolversion}", actualResults.getToolVersion());
 		html = html.replace("${version}", actualResults.getBenchmarkVersion());
 		html = html.replace("${actualResultsFile}", actualResultsFileName);
+		String jsvarname = "Benchmark_v" + actualResults.getBenchmarkVersion() + "_Scorecard_for_" + actualResults.getTool() + "_v" + actualResults.getToolVersion();
+		jsvarname = jsvarname.replace("-", "_").replace(".", "_");
+		html = html.replace("${jsvarname}", jsvarname);
 
 		String imgTag = "<img align=\"middle\" src=\"" + img.getName() + "\" />";
 		html = html.replace("${image}", imgTag);
 
 		String table = generateTable(actualResults, scores, or);
+		html = html.replace("${totalproc}", this.totalProc);
 		html = html.replace("${table}", table);
 
 		return html;
@@ -163,23 +181,22 @@ public class Report implements Comparable<Report> {
 	 * The method generates a Detailed results table for whatever tool results are passed in.
 	 */
 	private String generateTable(TestResults actualResults, Map<String, Counter> scores, OverallResults or) {
+		// Read table of CWE nr vs. name
+		//HashMap <String, String> HmCWElist = getCWElist(new File(BenchmarkScore.pathToScorecardResources + File.separator + "CWE-nr-name.csv"));
+		
 		StringBuilder sb = new StringBuilder();
 		sb.append("<table class=\"table\">\n");
 		sb.append("<tr>");
 		sb.append("<th>CWE</th>");
+		sb.append("<th>CWE Name</th>");
 		sb.append("<th>TP</th>");
 		sb.append("<th>FN</th>");
-		//sb.append("<th>TN</th>");
-		//sb.append("<th>FP</th>");
-		sb.append("<th>Total</th>");
-		//sb.append("<th>TPR</th>"); // =Score
-		//sb.append("<th>FPR</th>");
+		sb.append("<th>Total (P)</th>");
+		sb.append("<th>Total (P+N)</th>");
 		sb.append("<th>Score</th>");
 		sb.append("</tr>\n");
 		Counter totals = new Counter();
 		double totalTPR = 0;
-		//double totalFPR = 0;
-		//double totalScore = 0;
 		int nrbadtests = 0;
 
 		for (String category : scores.keySet()) {
@@ -195,88 +212,43 @@ public class Report implements Comparable<Report> {
 				String CWEnr = Integer.toString(BenchmarkScore.translateNameToCWE(category));
 				if (ScatterTools.IgnCWEs.contains(CWEnr)) {
 					style = "class=\"warning\"";
-					//} else if (Math.abs(r.truePositiveRate - r.falsePositiveRate) < .1) {	
 				} else if (Math.abs(r.truePositiveRate) < .1) {
 					style = "class=\"danger\"";
-					//} else if (r.truePositiveRate > .7 && r.falsePositiveRate < .3) {
 				} else if (r.truePositiveRate > .7) {
 					style = "class=\"success\"";
 				}
 				sb.append("<tr " + style + ">");
 				if (ScatterTools.IgnCWEs.contains(CWEnr)) {
-					sb.append("<td>" + category + " (*)</td>");
+					sb.append("<td><A HREF=https://cwe.mitre.org/data/definitions/" + CWEnr + ".html>CWE:" + CWEnr + " (*)</A></td>");
 				} else {
-					sb.append("<td>" + category + "</td>");
+					sb.append("<td><A HREF=https://cwe.mitre.org/data/definitions/" + CWEnr + ".html>CWE:" + CWEnr + "</A></td>");
 				}
-				//sb.append("<td>" + BenchmarkScore.translateNameToCWE(category) + "</td>");
-				//No case: tp and fn are 0
-				//if (c.tp == 0 && c.fn == 0) {
-				//	sb.append("<td>-</td><td>-</td>");
-				//} else {
-					sb.append("<td>" + c.tp + "</td>");
-					sb.append("<td>" + c.fn + "</td>");
-				//}
-				/*//No case: tn and fp are 0
-			if (c.tn == 0 && c.fp == 0) {
-				sb.append("<td>-</td><td>-</td>");
-			} else {
-				sb.append("<td>" + c.tn + "</td>");
-				sb.append("<td>" + c.fp + "</td>");
-			}*/
-				//sb.append("<td>" + r.total + "</td>");
+				sb.append("<td><A HREF=https://cwe.mitre.org/data/definitions/" + CWEnr + ".html>" + BenchmarkScore.getCWEName(CWEnr) + "</A></td>");
+				sb.append("<td>" + c.tp + "</td>");
+				sb.append("<td>" + c.fn + "</td>");
 				int totalbad = c.tp + c.fn;
+				int totalall = totalbad + c.fp + c.tn;
 				sb.append("<td>" + totalbad + "</td>");
-				//if (c.tp == 0 && c.fn == 0) {
-				//	sb.append("<td>-</td>");
-				//} else {
-					sb.append("<td>" + new DecimalFormat("#0.00%").format(r.truePositiveRate) + "</td>");
-				//}
-				/*if (c.tn == 0 && c.fp == 0) {
-				sb.append("<td>-</td>");
-			} else {
-				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.falsePositiveRate) + "</td>");
-			}
-			sb.append("<td>" + new DecimalFormat("#0.00%").format(r.score) + "</td>");*/
+				sb.append("<td>" + totalall + "</td>");
+				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.truePositiveRate) + "</td>");
 				sb.append("</tr>\n");
 				totals.tp += c.tp;
 				totals.fn += c.fn;
-				//totals.tn += c.tn;
-				//totals.fp += c.fp;
 				if (!Double.isNaN(r.truePositiveRate))
 					totalTPR += r.truePositiveRate;
-				//if (!Double.isNaN(r.falsePositiveRate))
-				//	totalFPR += r.falsePositiveRate;
-				//if (!Double.isNaN(r.score))
-				//	totalScore += r.score;
 			}
 		}
-		sb.append("<th>Totals**</th>");
+		sb.append("<th>Totals</th><th></th>");
 		sb.append("<th>" + totals.tp + "</th>");
 		sb.append("<th>" + totals.fn + "</th>");
-		//sb.append("<th>" + totals.tn + "</th>");
-		//sb.append("<th>" + totals.fp + "</th>");
-		//int total = totals.tp + totals.fn + totals.tn + totals.fp;
 		int total = totals.tp + totals.fn;
+		this.totalProc = Integer.toString(total);
 		sb.append("<th>" + total + "</th>");
-		sb.append("<th/><th/><th/></tr>\n");
-
-		sb.append("<th>Overall Results**</th><th/><th/><th/>");
+		sb.append("<th>" + or.getTotal() + "</th>");
 		double tpr = (totalTPR / nrbadtests);
 		sb.append("<th>" + new DecimalFormat("#0.00%").format(tpr) + "</th>");
-		//double fpr = (totalFPR / scores.size());
-		//sb.append("<th>" + new DecimalFormat("#0.00%").format(fpr) + "</th>");
-		//double score = totalScore / scores.size();
-		//sb.append("<th>" + new DecimalFormat("#0.00%").format(score) + "</th>");
 		sb.append("</tr>\n");
 		sb.append("</table>");
-		sb.append("<p>* - Not supported by Kiuwan"
-				+ "<p>** - The Overall Results are averages across all the vulnerability categories. "
-				+ " You can't compute these averages by simply calculating the TPR and FPR rates using "
-				+ " the values in the Totals row. If you did that, categories with larger number of tests would carry "
-				+ " more weight than categories with less tests. The proper calculation of the Overall Results is to"
-				+ " add up all the TPR, FPR, and Score values, "
-				+ " and then divide by the number of vulnerability categories, which is how they are calculated.<p/>");
-
 		return sb.toString();
 	}
 
@@ -288,4 +260,32 @@ public class Report implements Comparable<Report> {
 		return 	this.scores;
 	}
 
+	/*
+	private HashMap <String, String> getCWElist(File cwefile) {
+		HashMap <String, String> HmCWElist = new HashMap <String, String>();
+		if (!cwefile.exists()) {
+			System.out.println("Can't find CWE names file to get lines from File: " + cwefile.getName());
+			return null;
+		}
+
+		FileReader fr = null;
+		BufferedReader br = null;
+		try {
+			fr = new FileReader(cwefile);
+			br = new BufferedReader(fr);
+			String line = "";
+			while ((line = br.readLine()) != null) {
+				String[] cwedata = line.split(";");
+				HmCWElist.put(cwedata[0], cwedata[1]);
+			}
+		} catch (Exception e) {
+			System.out.println("Error reading CWE names file: " + cwefile.getName());
+		}		
+
+		return HmCWElist;
+	} */
+	
+	/*private String CWElink (String CWEnr) {
+		return "<A HREF=https://cwe.mitre.org/data/definitions/" + CWEnr + ".html>CWE:" + CWEnr + "</A>";
+	}*/
 }

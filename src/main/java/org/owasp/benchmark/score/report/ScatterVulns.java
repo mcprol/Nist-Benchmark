@@ -394,9 +394,9 @@ public class ScatterVulns extends ScatterPlot {
         try {
             String scatterTitle = "NIST Benchmark" + (BenchmarkScore.mixedMode ? " -" : " v" + BenchmarkScore.benchmarkVersion) + " " + category + " Comparison";
             ScatterVulns scatter = new ScatterVulns(scatterTitle, 800, category, toolResults, focus);
-            scatter.writeChartToFile(new File(scoreCardDirName+"/Benchmark_v" + BenchmarkScore.benchmarkVersion + "_Scorecard_forQQ_" + category.replace(' ', '_') + ".png"), 800);
+            //scatter.writeChartToFile(new File(scoreCardDirName+"/Benchmark_v" + BenchmarkScore.benchmarkVersion + "_Scorecard_forQQ_" + category.replace(' ', '_') + ".png"), 800);
             return scatter;
-        } catch (IOException e) {
+        } catch (Exception e) {
             System.out.println("Couldn't generate Benchmark vulnerability chart for some reason.");
             e.printStackTrace();
             return null;

@@ -37,6 +37,7 @@ import java.security.SecureRandom;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +60,7 @@ import org.owasp.benchmark.score.parsers.TestResults;
 import org.owasp.benchmark.score.report.HighChartsGenerator;
 import org.owasp.benchmark.score.report.Report;
 import org.owasp.benchmark.score.report.ScatterHome;
+import org.owasp.benchmark.score.report.ScatterTools;
 import org.owasp.benchmark.score.report.ScatterVulns;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
@@ -117,6 +119,8 @@ public class BenchmarkScore {
 		+ "\nNotes:\n"
 		+ "  suite_root_dir/results directory with result files from tools (.ozasmt, .fpr, .fvdl, .xml, etc...)\n"
 		+ "  suite_root_dir/scorecard - target scorecard directory.\n";
+
+	private static final HashMap <String, String> HmCWElist = getCWElist(new File(pathToScorecardResources + File.separator + "CWE-nr-name.csv"));
 	
 	public static void main(String[] args) {
 		if (args.length != 3) {
@@ -246,13 +250,16 @@ public class BenchmarkScore {
 
 		HighChartsGenerator.generateCWEChartData(scoreCardDirName, "cwe_NIST_Benchmark_Home", "NIST Benchmark '" + BenchmarkScore.benchmarkVersion + "' CWE Comparison", toolResults);
         
+		//js files per tool
+		HighChartsGenerator.generateCWEperToolChartData(scoreCardDirName, BenchmarkScore.benchmarkVersion, toolResults);
+		
         //### Generate all CWE barchart
-        try {
+        /*try {
         	writeBarChartToFile(new File(scoreCardDirName + "/cwe_comparison.png"), 1100, 2000);
         } catch (IOException e) {
     		System.out.println("Couldn't generate CWE comparison chart for some reason.");
     		e.printStackTrace();
-    	}
+    	}*/
         
         // Step 9: Generate the results table across all the tools in this test
 		String table = generateOverallStatsTable(toolResults);
@@ -951,18 +958,24 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
                 Path htmlfile = Paths.get( scoreCardDirName + "/" + filename + ".html" );
                 Files.copy(Paths.get(pathToScorecardResources + "vulntemplate.html" ), htmlfile, StandardCopyOption.REPLACE_EXISTING );
                 String html = new String(Files.readAllBytes( htmlfile ) );
-                String fullTitle = "NIST Benchmark Scorecard for " + cat;
+                
+                String CWEnr = Integer.toString(BenchmarkScore.translateNameToCWE(cat));
+                
+                String fullTitle = "NIST Benchmark Scorecard for <A HREF=https://cwe.mitre.org/data/definitions/" + 
+                		CWEnr + ".html>" + cat + ": " + getCWEName(CWEnr) + "</A>";
 
                 html = html.replace("${image}", filename + ".png" );
                 html = html.replace( "${title}", fullTitle );
-                html = html.replace( "${vulnerability}", cat + " (CWE #" 
-                		+ BenchmarkScore.translateNameToCWE(cat) + ")" );
+                html = html.replace( "${vulnerability}", cat);
                 html = html.replace( "${version}", benchmarkVersion );
+                
+               
                 
         		String table = generateVulnStatsTable(toolResults, cat);
         		html = html.replace("${table}", table);
                 
                 Files.write( htmlfile, html.getBytes() );
+                //############## End HTML ##########################
                 
                 // Now build up the commercial stats scorecard if there are at least 2 commercial tools
                 if (scatter.getCommercialToolCount() > 1) {
@@ -1027,11 +1040,8 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 		if (mixedMode) sb.append("<th>Benchmark Version</th>");
 		sb.append("<th>TP</th>");
 		sb.append("<th>FN</th>");
-		sb.append("<th>TN</th>");
-		sb.append("<th>FP</th>");
-		sb.append("<th>Total</th>");
-		sb.append("<th>TPR</th>");
-		sb.append("<th>FPR</th>");
+		sb.append("<th>Total (P)</th>");
+		sb.append("<th>Total (P+N)</th>");
 		sb.append("<th>Score</th>");
 		sb.append("</tr>\n");
 
@@ -1044,20 +1054,19 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 				OverallResult r = or.getResults(category);
 				String style = "";
 				
-				if (Math.abs(r.truePositiveRate - r.falsePositiveRate) < .1)
+				if (Math.abs(r.truePositiveRate) < .1) {
 					style = "class=\"danger\"";
-				else if (r.truePositiveRate > .7 && r.falsePositiveRate < .3)
+				} else if (r.truePositiveRate > .7) {
 					style = "class=\"success\"";
+				}
+
 				sb.append("<tr " + style + ">");
 				sb.append("<td>" + toolResult.getToolNameAndVersion() + "</td>");
 				if (mixedMode) sb.append("<td>" + toolResult.getBenchmarkVersion() + "</td>");
 				sb.append("<td>" + c.tp + "</td>");
 				sb.append("<td>" + c.fn + "</td>");
-				sb.append("<td>" + c.tn + "</td>");
-				sb.append("<td>" + c.fp + "</td>");
+				sb.append("<td>" + (c.tp + c.fn) + "</td>");
 				sb.append("<td>" + r.total + "</td>");
-				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.truePositiveRate) + "</td>");
-				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.falsePositiveRate) + "</td>");
 				sb.append("<td>" + new DecimalFormat("#0.00%").format(r.score) + "</td>");
 				sb.append("</tr>\n");
 			}
@@ -1085,9 +1094,9 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 //		sb.append("<th>TN</th>");
 //		sb.append("<th>FP</th>");
 //		sb.append("<th>Total</th>");
-		sb.append("<th>TPR*</th>");
-		sb.append("<th>FPR*</th>");
-		sb.append("<th>Score*</th>");
+//		sb.append("<th>TPR*</th>");
+//		sb.append("<th>FPR*</th>");
+		sb.append("<th>Score</th>");
 		sb.append("</tr>\n");
 
 		for (Report toolResult : toolResults) {
@@ -1109,16 +1118,16 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 				sb.append("<td>" + c.tn + "</td>");
 				sb.append("<td>" + c.fp + "</td>");
 				sb.append("<td>" + or.getTotal() + "</td>");
-*/				sb.append("<td>" + new DecimalFormat("#0.00%").format(or.getTruePositiveRate()) + "</td>");
+				sb.append("<td>" + new DecimalFormat("#0.00%").format(or.getTruePositiveRate()) + "</td>");
 				sb.append("<td>" + new DecimalFormat("#0.00%").format(or.getFalsePositiveRate()) + "</td>");
-				sb.append("<td>" + new DecimalFormat("#0.00%").format(or.getScore()) + "</td>");
+*/				sb.append("<td>" + new DecimalFormat("#0.00%").format(or.getScore()) + "</td>");
 				sb.append("</tr>\n");
 			}
 		}
 
 		sb.append("</tr>\n");
 		sb.append("</table>");
-		sb.append("<p>*-Please refer to each tool's scorecard for the data used to calculate these values.");
+//		sb.append("<p>*-Please refer to each tool's scorecard for the data used to calculate these values.");
 
 		return sb.toString();
 	}
@@ -1233,5 +1242,33 @@ private static final String BENCHMARK_VERSION_PREFIX = "Benchmark version: ";
 		default:
 			return cwe;
 		}			
+	}
+	
+	private static HashMap <String, String> getCWElist(File cwefile) {
+		HashMap <String, String> HmCWElist = new HashMap <String, String>();
+		if (!cwefile.exists()) {
+			System.out.println("Can't find CWE names file to get lines from File: " + cwefile.getName());
+			return null;
+		}
+
+		FileReader fr = null;
+		BufferedReader br = null;
+		try {
+			fr = new FileReader(cwefile);
+			br = new BufferedReader(fr);
+			String line = "";
+			while ((line = br.readLine()) != null) {
+				String[] cwedata = line.split(";");
+				HmCWElist.put(cwedata[0], cwedata[1]);
+			}
+		} catch (Exception e) {
+			System.out.println("Error reading CWE names file: " + cwefile.getName());
+		}		
+
+		return HmCWElist;
+	}
+	
+	public static final String getCWEName(String CWEnr) {
+		return HmCWElist.get(CWEnr);
 	}
 }
