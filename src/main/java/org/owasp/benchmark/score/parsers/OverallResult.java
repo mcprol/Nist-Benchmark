@@ -41,4 +41,8 @@ public class OverallResult {
 		this.score = score;
 	}
 	
+	@Override
+	public String toString() {		
+		return String.format("%s, %f, %f, %d, %f", category, truePositiveRate, falsePositiveRate, total, score);	
+	}
 }

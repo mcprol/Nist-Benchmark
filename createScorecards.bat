@@ -7,7 +7,10 @@
 ::set SUITE=SARD-testsuite-87
 ::set EXPECTED=manifest-2016-09-12-09-43-15-OpcWjf.xml
 
-set SUITE=SARD-testsuite-105-csharp
-set EXPECTED=manifest-2016-09-13-16-48-29-76yO0L.xml
+::set SUITE=SARD-testsuite-105-csharp
+::set EXPECTED=manifest-2016-09-13-16-48-29-76yO0L.xml
+
+set SUITE=SARD-testsuite-108-c
+set EXPECTED=manifest-2017-11-02-18-08-33-SA9Bln.xml
 
 call mvn validate -Pbenchmarkscore -Dexec.args="%SUITE% suites/%SUITE% suites/%SUITE%/expected/%EXPECTED%"

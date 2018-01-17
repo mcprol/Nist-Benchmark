@@ -62,7 +62,11 @@ public class HighChartsGenerator {
 		JSONArray serie_data = new JSONArray();
 		for ( Report toolReport : toolResults ) {
 			OverallResults overallResults = toolReport.getOverallResults();
-			Double value = overallResults.getTruePositiveRate() * 100;
+			Double tpr = Double.valueOf(overallResults.getTruePositiveRate());
+			if (Double.isNaN(tpr)) {
+				tpr = .0;
+			}
+			Double value = tpr * 100;
 
 			serie_data.put(value);
 		}
@@ -253,7 +257,12 @@ public class HighChartsGenerator {
 			Collection<String> categories = overallResults.getCategories();
 			for (String category: categories) {
 				OverallResult overallResult = overallResults.getResults(category);
-				serie_data.put(overallResult.truePositiveRate * 100);
+				//System.out.println(overallResult);
+				Double tpr = Double.valueOf(overallResult.truePositiveRate);
+				if (Double.isNaN(tpr)) {
+					tpr = .0;
+				}
+				serie_data.put(tpr.doubleValue() * 100);
 			}
 		}
 
@@ -311,7 +320,12 @@ public class HighChartsGenerator {
 		Collection<String> categories = overallResults.getCategories();
 		for (String category: categories) {
 			OverallResult overallResult = overallResults.getResults(category);
-			serie_data.put(overallResult.truePositiveRate * 100);
+			//System.out.println(overallResult);
+			Double tpr = Double.valueOf(overallResult.truePositiveRate);
+			if (Double.isNaN(tpr)) {
+				tpr = .0;
+			}
+			serie_data.put(tpr.doubleValue() * 100);
 		}
 		
 		double totalscore = toolResult.getOverallResults().getScore() * 100;
